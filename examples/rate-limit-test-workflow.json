@@ -1,0 +1,300 @@
+{
+  "name": "SudoMock - Rate Limit Error Handling Test",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1",
+      "name": "When clicking Test workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAccountInfo"
+      },
+      "id": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2",
+      "name": "Get Account Info",
+      "type": "n8n-nodes-sudomock.sudoMock",
+      "typeVersion": 1,
+      "position": [
+        460,
+        380
+      ],
+      "continueOnFail": true,
+      "notes": "Enable 'Continue On Fail' to catch rate limit errors"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 429,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3",
+      "name": "Check if Rate Limited",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        680,
+        380
+      ],
+      "notes": "Check if we got a 429 error"
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.retryAfter || 60 }}",
+        "unit": "seconds"
+      },
+      "id": "d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4",
+      "name": "Wait (Retry-After)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        280
+      ],
+      "webhookId": "rate-limit-wait-webhook",
+      "notes": "Wait for the time specified in retryAfter field"
+    },
+    {
+      "parameters": {
+        "operation": "getAccountInfo"
+      },
+      "id": "e5e5e5e5-e5e5-e5e5-e5e5-e5e5e5e5e5e5",
+      "name": "Retry Request",
+      "type": "n8n-nodes-sudomock.sudoMock",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        280
+      ],
+      "notes": "Retry the request after waiting"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "error_type",
+              "value": "={{ $('Get Account Info').item.json.errorType || 'unknown' }}"
+            },
+            {
+              "name": "error_message",
+              "value": "={{ $('Get Account Info').item.json.error || 'No error' }}"
+            },
+            {
+              "name": "retry_after_seconds",
+              "value": "={{ $('Get Account Info').item.json.retryAfter || 0 }}"
+            },
+            {
+              "name": "rate_limit_type",
+              "value": "={{ $('Get Account Info').item.json.errorDetails?.type || 'N/A' }}"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $('Get Account Info').item.json.errorDetails?.limit || 'N/A' }}"
+            },
+            {
+              "name": "current_usage",
+              "value": "={{ $('Get Account Info').item.json.errorDetails?.current || 'N/A' }}"
+            },
+            {
+              "name": "remaining",
+              "value": "={{ $('Get Account Info').item.json.errorDetails?.remaining || 'N/A' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6",
+      "name": "Show Rate Limit Details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        900,
+        480
+      ],
+      "notes": "Display detailed rate limit error information"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "=✅ Request successful (no rate limit)"
+            },
+            {
+              "name": "account_email",
+              "value": "={{ $json.data?.account?.email || 'N/A' }}"
+            },
+            {
+              "name": "plan",
+              "value": "={{ $json.data?.subscription?.plan?.name || 'N/A' }}"
+            },
+            {
+              "name": "credits_remaining",
+              "value": "={{ $json.data?.usage?.credits_remaining || 'N/A' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g7g7g7g7-g7g7-g7g7-g7g7-g7g7g7g7g7g7",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        900,
+        380
+      ],
+      "notes": "Normal success path - no rate limit"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "retry_status",
+              "value": "=✅ Retry successful after rate limit"
+            },
+            {
+              "name": "account_email",
+              "value": "={{ $json.data?.account?.email || 'N/A' }}"
+            },
+            {
+              "name": "waited_seconds",
+              "value": "={{ $('Wait (Retry-After)').item.json.retryAfter || 60 }}"
+            },
+            {
+              "name": "plan",
+              "value": "={{ $json.data?.subscription?.plan?.name || 'N/A' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h8h8h8h8-h8h8-h8h8-h8h8-h8h8h8h8h8h8",
+      "name": "Retry Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        1340,
+        280
+      ],
+      "notes": "Successful retry after rate limit"
+    },
+    {
+      "parameters": {
+        "content": "## Rate Limit Test Workflow\n\nThis workflow demonstrates proper handling of SudoMock API rate limits.\n\n### Flow:\n1. **Get Account Info** (with Continue On Fail enabled)\n2. **Check if Rate Limited** (429 status code?)\n3. **If Rate Limited:**\n   - Extract `retryAfter` value\n   - Wait for specified seconds\n   - Retry request\n   - Show success\n4. **If Not Rate Limited:**\n   - Show success response\n\n### Rate Limit Types:\n- **rate_limit_exceeded**: 1000 requests/minute limit\n- **concurrent_limit_exceeded**: Plan-based concurrent operations\n\n### Error Output Fields:\n- `errorType`: Type of rate limit\n- `error`: User-friendly message\n- `retryAfter`: Seconds to wait\n- `errorDetails`: Full error object with limit/current/remaining",
+        "height": 460,
+        "width": 380,
+        "color": 4
+      },
+      "id": "i9i9i9i9-i9i9-i9i9-i9i9-i9i9i9i9i9i9",
+      "name": "Info",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking Test workflow": {
+      "main": [
+        [
+          {
+            "node": "Get Account Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Account Info": {
+      "main": [
+        [
+          {
+            "node": "Check if Rate Limited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Rate Limited": {
+      "main": [
+        [
+          {
+            "node": "Wait (Retry-After)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Show Rate Limit Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (Retry-After)": {
+      "main": [
+        [
+          {
+            "node": "Retry Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Request": {
+      "main": [
+        [
+          {
+            "node": "Retry Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "tags": []
+}

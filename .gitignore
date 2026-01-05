@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.local
+.idea
+.claude/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Internal development docs (not for public)
+DEVELOPMENT_GUIDE.md

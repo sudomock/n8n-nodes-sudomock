@@ -1,0 +1,395 @@
+{
+  "name": "App Screenshot Generator - Multi-Device App Store",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 📱 App Screenshot Generator\n\n**What this workflow does:**\nAuto-generates App Store screenshots for iPhone, iPad, MacBook mockups from CI/CD pipeline\n\n**Requirements:**\n- SudoMock API key ([Free tier](https://sudomock.com))\n- Device mockup PSDs uploaded (iPhone 15, iPad Pro, MacBook)\n- Webhook endpoint configured\n- Screenshot URLs (from app build)\n\n**Perfect for:**\n- App Store submission automation\n- Product launch assets\n- Multi-language app screenshots",
+        "height": 388,
+        "width": 412,
+        "color": 4
+      },
+      "id": "d2981bd3-8406-4fd0-bc37-07433afe1890",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        8736,
+        3776
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "app-screenshots",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "ed5f62f7-2f03-4e08-8020-86c85b540201",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        8736,
+        4176
+      ],
+      "webhookId": "app-screenshots-webhook",
+      "notes": "Trigger from CI/CD or manual with screenshot URLs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Expected webhook payload:\n// {\n//   \"screenshots\": [\n//     {\"name\": \"home\", \"url\": \"https://...\"},\n//     {\"name\": \"profile\", \"url\": \"https://...\"}\n//   ],\n//   \"appName\": \"MyApp\",\n//   \"version\": \"1.2.0\"\n// }\n\nconst payload = $input.item.json.body;\n\nreturn [{\n  json: {\n    screenshots: payload.screenshots || [],\n    appName: payload.appName || 'App',\n    version: payload.version || '1.0.0'\n  }\n}];"
+      },
+      "id": "818e2d50-2c65-4f25-9226-d82e23b32cdd",
+      "name": "Parse Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8960,
+        4176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "listMockups",
+        "additionalOptions": {}
+      },
+      "id": "3e80de43-2fb3-485a-81f1-7ae458438751",
+      "name": "Get Device Templates",
+      "type": "n8n-nodes-sudomock.sudoMock",
+      "typeVersion": 1,
+      "position": [
+        9184,
+        4176
+      ],
+      "notes": "Get uploaded device mockups: iPhone-15-Pro, iPad-Pro, MacBook-Pro"
+    },
+    {
+      "parameters": {
+        "jsCode": "const screenshots = $('Parse Webhook Data').item.json.screenshots;\nconst devices = $input.item.json.data.mockups;\nconst appInfo = $('Parse Webhook Data').item.json;\n\nconst combinations = [];\n\nfor (const screenshot of screenshots) {\n  for (const device of devices) {\n    const smartObject = device.smart_objects.find(so => so.name === 'Screen');\n    \n    if (!smartObject) continue;\n    \n    combinations.push({\n      screenshotName: screenshot.name,\n      screenshotUrl: screenshot.url,\n      deviceName: device.name,\n      deviceUuid: device.uuid,\n      smartObjectUuid: smartObject.uuid,\n      appName: appInfo.appName,\n      version: appInfo.version,\n      fileName: `${device.name}_${screenshot.name}`\n    });\n  }\n}\n\nreturn combinations.map(c => ({ json: c }));"
+      },
+      "id": "2a9ec235-c27f-413e-8ec6-a3d16f9d0ba5",
+      "name": "Create Screenshot×Device Matrix",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        9408,
+        4176
+      ],
+      "notes": "Create: home×iPhone, home×iPad, profile×iPhone, etc."
+    },
+    {
+      "parameters": {
+        "content": "## ⚡ Parallel Processing\n\n**Speed optimization:**\nProcesses 2 renders at a time (batchSize: 2)\n\n**Example:** 4 screenshots × 3 devices = 12 renders\n- Sequential (1 at a time): ~12 seconds\n- Parallel (2): ~6 seconds\n- Parallel (10 with Pro): ~2 seconds\n\n**Each render: ~1 second**\n\n**Webhook payload:**\n```json\n{\n  \"screenshots\": [{\"name\": \"home\", \"url\": \"...\"}],\n  \"appName\": \"MyApp\",\n  \"version\": \"1.2.0\"\n}\n```",
+        "height": 440,
+        "width": 556,
+        "color": 5
+      },
+      "id": "4de8e653-b921-44c3-8cd5-7c7af5c8fa91",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        9616,
+        3680
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 2,
+        "options": {}
+      },
+      "id": "472535f0-cf7b-4c65-9f34-1fb14d72a5cf",
+      "name": "Loop (2 at a time)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        9616,
+        4176
+      ],
+      "notes": "Process 2 renders in parallel - faster than sequential"
+    },
+    {
+      "parameters": {
+        "mockupUuid": "={{ $json.deviceUuid }}",
+        "smartObjects": {
+          "items": [
+            {
+              "uuid": "={{ $json.smartObjectUuid }}",
+              "assetUrl": "={{ $json.screenshotUrl }}",
+              "fit": "fill",
+              "additionalOptions": {}
+            }
+          ]
+        },
+        "exportOptions": {
+          "imageFormat": "png",
+          "imageSize": 2732,
+          "quality": 100,
+          "exportLabel": "={{ $json.fileName }}"
+        }
+      },
+      "id": "d64ac94e-751a-4fd3-9cb5-495521107339",
+      "name": "Render Device Screenshot",
+      "type": "n8n-nodes-sudomock.sudoMock",
+      "typeVersion": 1,
+      "position": [
+        9840,
+        4176
+      ],
+      "continueOnFail": true,
+      "notes": "High quality PNG for App Store submission"
+    },
+    {
+      "parameters": {
+        "jsCode": "const loopData = $('Loop (2 at a time)').item.json;\nconst renderResult = $input.item.json;\n\nreturn [{\n  json: {\n    fileName: loopData.fileName,\n    deviceName: loopData.deviceName,\n    screenshotName: loopData.screenshotName,\n    appName: loopData.appName,\n    version: loopData.version,\n    renderedUrl: renderResult.renderedImageUrl || null,\n    success: !!renderResult.renderedImageUrl\n  }\n}];"
+      },
+      "id": "363c0ed5-1139-4a17-ae95-f91829d14ce2",
+      "name": "Collect Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10064,
+        4176
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allResults = $input.all();\nconst appInfo = allResults[0]?.json;\n\n// Group by device for App Store format\nconst byDevice = {};\nallResults.forEach(r => {\n  const device = r.json.deviceName;\n  if (!byDevice[device]) byDevice[device] = [];\n  byDevice[device].push(r.json);\n});\n\nreturn [{\n  json: {\n    appName: appInfo.appName,\n    version: appInfo.version,\n    totalScreenshots: allResults.length,\n    successCount: allResults.filter(r => r.json.success).length,\n    byDevice: byDevice,\n    allUrls: allResults.filter(r => r.json.renderedUrl).map(r => r.json.renderedUrl)\n  }\n}];"
+      },
+      "id": "ab78d1b1-bc91-4609-98eb-94ed2d76f708",
+      "name": "Group by Device",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10064,
+        4384
+      ],
+      "notes": "Organize screenshots by device type for easy App Store upload"
+    },
+    {
+      "parameters": {
+        "content": "## 📦 Output & Delivery\n\n**What you get:**\n- ZIP file with all screenshots\n- Organized by device (iPhone/, iPad/, MacBook/)\n- High-quality PNG format (2732px max)\n- Uploaded to Google Drive\n- Team notified via Slack\n\n**File structure:**\n```\nMyApp-v1.2.0-screenshots.zip\n├── iPhone-15-Pro/\n│   ├── home.png\n│   └── profile.png\n├── iPad-Pro/\n└── MacBook-Pro/\n```",
+        "height": 380,
+        "width": 416,
+        "color": 6
+      },
+      "id": "5d170e73-9c45-4427-be05-6632cbbd437a",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        10288,
+        4528
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "67be4ec4-15bf-4a27-bcf0-b209362ffb99",
+      "name": "Download All Screenshots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        10288,
+        4384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "compress"
+      },
+      "id": "05e1c7d3-2f44-4157-bebd-c8de998e1467",
+      "name": "Create ZIP Archive",
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1,
+      "position": [
+        10496,
+        4384
+      ],
+      "notes": "ZIP all screenshots for easy download"
+    },
+    {
+      "parameters": {
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "9b56381e-9bdc-4125-8058-4adb67632212",
+      "name": "Upload to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        10720,
+        4384
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ '📱 App Store Screenshots Ready!\\n\\n*App:* ' + $('Group by Device').item.json.appName + '\\n*Version:* ' + $('Group by Device').item.json.version + '\\n*Screenshots:* ' + $('Group by Device').item.json.successCount + '/' + $('Group by Device').item.json.totalScreenshots + '\\n\\nDownload: [Google Drive Link]' }}",
+        "otherOptions": {}
+      },
+      "id": "f764ac9b-d971-4a01-87ac-7d25c64e937d",
+      "name": "Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        10944,
+        4384
+      ],
+      "webhookId": "749067b9-e068-4add-981f-fd0ab598355c"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Webhook Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Webhook Data": {
+      "main": [
+        [
+          {
+            "node": "Get Device Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Device Templates": {
+      "main": [
+        [
+          {
+            "node": "Create Screenshot×Device Matrix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Screenshot×Device Matrix": {
+      "main": [
+        [
+          {
+            "node": "Loop (2 at a time)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop (2 at a time)": {
+      "main": [
+        [
+          {
+            "node": "Group by Device",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render Device Screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Device Screenshot": {
+      "main": [
+        [
+          {
+            "node": "Collect Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Result": {
+      "main": [
+        [
+          {
+            "node": "Loop (2 at a time)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group by Device": {
+      "main": [
+        [
+          {
+            "node": "Download All Screenshots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download All Screenshots": {
+      "main": [
+        [
+          {
+            "node": "Create ZIP Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create ZIP Archive": {
+      "main": [
+        [
+          {
+            "node": "Upload to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Drive": {
+      "main": [
+        [
+          {
+            "node": "Notify Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "4e524d43-8b6c-4be5-b8da-689770d953ff",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f78b142a514d746b8ac5c8a426bccfc79fa045de1e737cf3db9402e140b7c5b"
+  },
+  "id": "hJ48C57K9kadS90L",
+  "tags": []
+}

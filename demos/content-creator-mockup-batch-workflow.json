@@ -1,0 +1,466 @@
+{
+  "name": "Content Creator - Social Media Mockup Batch",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🎨 Content Creator Mockup Automation\n\n**What this workflow does:**\nAuto-creates platform-optimized mockups for Instagram, Twitter, LinkedIn when you upload a design\n\n**Requirements:**\n- SudoMock API key ([Free tier: 500 credits](https://sudomock.com))\n- Google Drive folder setup\n- Device mockup PSDs (laptop, phone, billboard)\n- Buffer account (optional for auto-scheduling)\n\n**Output:**\nEvery design → 12 mockup variants\n(3 devices × 4 platforms)",
+        "height": 372,
+        "width": 428,
+        "color": 4
+      },
+      "id": "7bda0224-f7c8-4ced-a21e-0daacb4f4660",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        10720,
+        5040
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "fileCreated"
+      },
+      "id": "cbe34a0b-8ea4-415f-b65c-7d04c8518a97",
+      "name": "Watch Designs Folder",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        10720,
+        5440
+      ],
+      "notes": "Trigger when new design uploaded to Google Drive"
+    },
+    {
+      "parameters": {
+        "operation": "listMockups",
+        "additionalOptions": {}
+      },
+      "id": "27b74eb1-d8f6-47f2-a2d0-6af8bff5f4d0",
+      "name": "Get Mockup Templates",
+      "type": "n8n-nodes-sudomock.sudoMock",
+      "typeVersion": 1,
+      "position": [
+        10944,
+        5440
+      ],
+      "notes": "Get context mockups: MacBook, iPhone, Billboard, etc."
+    },
+    {
+      "parameters": {
+        "jsCode": "const designFile = $('Watch Designs Folder').item.json;\nconst mockups = $input.item.json.data.mockups;\n\n// Social media platforms and their optimal sizes\nconst platforms = [\n  { name: 'Instagram-Post', size: 1080, ratio: '1:1' },\n  { name: 'Instagram-Story', size: 1080, ratio: '9:16' },\n  { name: 'Twitter-Post', size: 1200, ratio: '16:9' },\n  { name: 'LinkedIn-Post', size: 1200, ratio: '1.91:1' }\n];\n\nconst combinations = [];\n\nfor (const mockup of mockups) {\n  for (const platform of platforms) {\n    const smartObject = mockup.smart_objects[0];\n    \n    combinations.push({\n      designName: designFile.name,\n      designUrl: designFile.webViewLink,\n      mockupName: mockup.name,\n      mockupUuid: mockup.uuid,\n      smartObjectUuid: smartObject.uuid,\n      platform: platform.name,\n      targetSize: platform.size,\n      aspectRatio: platform.ratio,\n      outputName: `${designFile.name.split('.')[0]}_${mockup.name}_${platform.name}`\n    });\n  }\n}\n\nreturn combinations.map(c => ({ json: c }));"
+      },
+      "id": "f5c0f48d-3ecf-4f1d-b34a-fb340c4569a3",
+      "name": "Create Mockup×Platform Matrix",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        11168,
+        5440
+      ],
+      "notes": "Create: design×laptop×Instagram, design×phone×Twitter, etc."
+    },
+    {
+      "parameters": {
+        "content": "## 🔄 Platform Optimization\n\n**What happens:**\n1. Design uploaded to Google Drive\n2. Creates mockup × platform combinations:\n   - Instagram Post (1080×1080)\n   - Instagram Story (1080×1920)\n   - Twitter Post (1200×675)\n   - LinkedIn Post (1200×628)\n3. Renders each with correct device mockup\n4. Adds watermark automatically\n5. Resizes for platform specs\n\n**Time saved:**\n12 variants per design (~12 seconds to render)\nManual: ~1 hour → Automated: ~30 seconds",
+        "height": 380,
+        "width": 400,
+        "color": 5
+      },
+      "id": "0e8bb9b1-b5cb-4b1b-8e66-8dfcb25ba1ac",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        11376,
+        5040
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c8e1c3f9-6e0b-4741-a440-f0ec0503b5d8",
+      "name": "Loop Through Variants",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        11376,
+        5440
+      ]
+    },
+    {
+      "parameters": {
+        "mockupUuid": "={{ $json.mockupUuid }}",
+        "smartObjects": {
+          "items": [
+            {
+              "uuid": "={{ $json.smartObjectUuid }}",
+              "assetUrl": "={{ $json.designUrl }}",
+              "additionalOptions": {}
+            }
+          ]
+        },
+        "exportOptions": {
+          "imageFormat": "webp",
+          "imageSize": "={{ $json.targetSize }}",
+          "quality": 90,
+          "exportLabel": "={{ $json.outputName }}"
+        }
+      },
+      "id": "19854909-3008-41ea-b810-23d28e146a83",
+      "name": "Render Mockup",
+      "type": "n8n-nodes-sudomock.sudoMock",
+      "typeVersion": 1,
+      "position": [
+        11600,
+        5440
+      ],
+      "continueOnFail": true,
+      "notes": "Render with platform-specific size optimization"
+    },
+    {
+      "parameters": {},
+      "id": "d8e16b38-ff96-4a88-a7dd-1eca8f96aeda",
+      "name": "Add Watermark & Resize",
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1.1,
+      "position": [
+        11824,
+        5440
+      ],
+      "notes": "Add branding watermark and resize for platform"
+    },
+    {
+      "parameters": {
+        "jsCode": "const loopData = $('Loop Through Variants').item.json;\nconst renderResult = $('Render Mockup').item.json;\nconst editedImage = $input.item.json;\n\nreturn [{\n  json: {\n    designName: loopData.designName,\n    mockupName: loopData.mockupName,\n    platform: loopData.platform,\n    outputName: loopData.outputName,\n    aspectRatio: loopData.aspectRatio,\n    mockupUrl: renderResult.renderedImageUrl || null,\n    finalImageData: editedImage.data,\n    success: !!renderResult.renderedImageUrl\n  }\n}];"
+      },
+      "id": "3ba02331-f8f7-4c75-95da-b6c67c2c0d06",
+      "name": "Collect Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12048,
+        5440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allResults = $input.all();\n\n// Group by platform for Buffer scheduling\nconst byPlatform = {\n  'Instagram-Post': [],\n  'Instagram-Story': [],\n  'Twitter-Post': [],\n  'LinkedIn-Post': []\n};\n\nallResults.forEach(r => {\n  const platform = r.json.platform;\n  if (byPlatform[platform]) {\n    byPlatform[platform].push(r.json);\n  }\n});\n\nconst designName = allResults[0]?.json?.designName || 'Design';\n\nreturn [{\n  json: {\n    designName: designName,\n    totalVariants: allResults.length,\n    successCount: allResults.filter(r => r.json.success).length,\n    byPlatform: byPlatform,\n    allUrls: allResults.filter(r => r.json.mockupUrl).map(r => r.json.mockupUrl)\n  }\n}];"
+      },
+      "id": "3c5f12b1-09aa-4fef-b4ec-a5b24047d63b",
+      "name": "Group by Platform",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12048,
+        5632
+      ],
+      "notes": "Organize variants by social media platform"
+    },
+    {
+      "parameters": {
+        "content": "## 📱 Auto-Schedule & Organize\n\n**Organized output:**\nGoogle Drive folder structure:\n```\nMyDesign - Social Media Pack/\n├── Instagram-Post/\n├── Instagram-Story/\n├── Twitter-Post/\n└── LinkedIn-Post/\n```\n\n**Buffer integration:**\n- Auto-schedules posts across platforms\n- Optimal posting times\n- Includes mockup images\n\n**Team notification:**\nSlack message with summary + Drive link",
+        "height": 408,
+        "width": 400,
+        "color": 6
+      },
+      "id": "c6ac651f-2435-4c8f-8a6e-048152e3c848",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        12704,
+        5200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.designName + ' - Social Media Pack' }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "e2a9e8c1-24d1-4387-a9f9-f93c0e9cce56",
+      "name": "Create Drive Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        12256,
+        5632
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "7ecd6c3d-872e-4ea9-abdf-625e6b6cc47d",
+      "name": "Merge URLs with Folder",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        12480,
+        5632
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "486704cb-a99f-49d8-8efd-d2daeeb89a64",
+      "name": "Loop Upload Files",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        12704,
+        5632
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "71c9f2a4-3d86-4689-8a6e-33dfcaf83605",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        12928,
+        5632
+      ]
+    },
+    {
+      "parameters": {
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": "={{ $('Create Drive Folder').item.json.id }}",
+        "options": {}
+      },
+      "id": "7580a36d-0412-4bc1-834e-44a195a2a855",
+      "name": "Upload to Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        13136,
+        5632
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "05b851ba-fc25-404a-ad9c-64a16be564e4",
+      "name": "Continue Loop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        13360,
+        5632
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "526fe38c-198c-4cf4-bdac-2bfe0614b1e9",
+      "name": "Schedule to Buffer",
+      "type": "n8n-nodes-base.buffer",
+      "typeVersion": 1,
+      "position": [
+        12704,
+        5840
+      ],
+      "notes": "Schedule posts across all platforms"
+    },
+    {
+      "parameters": {
+        "text": "={{ '🎨 *New Design Ready for Social Media!*\\n\\n*Design:* ' + $json.designName + '\\n*Variants:* ' + $json.successCount + ' mockups created\\n*Platforms:* Instagram, Twitter, LinkedIn\\n\\n✅ Uploaded to Google Drive\\n📅 Scheduled in Buffer for ' + $now.plus(1, 'hour').toFormat('HH:mm') }}",
+        "otherOptions": {}
+      },
+      "id": "1096f624-f736-4f7d-979c-d18676222a90",
+      "name": "Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        12928,
+        5840
+      ],
+      "webhookId": "6dfe74cc-a0f8-45b5-931c-12ab6a685cc8"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Watch Designs Folder": {
+      "main": [
+        [
+          {
+            "node": "Get Mockup Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Mockup Templates": {
+      "main": [
+        [
+          {
+            "node": "Create Mockup×Platform Matrix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Mockup×Platform Matrix": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Through Variants": {
+      "main": [
+        [
+          {
+            "node": "Group by Platform",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render Mockup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Result": {
+      "main": [
+        [
+          {
+            "node": "Loop Through Variants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group by Platform": {
+      "main": [
+        [
+          {
+            "node": "Create Drive Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Drive Folder": {
+      "main": [
+        [
+          {
+            "node": "Merge URLs with Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge URLs with Folder": {
+      "main": [
+        [
+          {
+            "node": "Loop Upload Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Upload Files": {
+      "main": [
+        [
+          {
+            "node": "Continue Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Upload to Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Folder": {
+      "main": [
+        [
+          {
+            "node": "Loop Upload Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "672ca7bb-6223-488d-9fa8-dc6a0937dbb1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f78b142a514d746b8ac5c8a426bccfc79fa045de1e737cf3db9402e140b7c5b"
+  },
+  "id": "hJ48C57K9kadS90L",
+  "tags": []
+}

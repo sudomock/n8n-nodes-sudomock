@@ -142,7 +142,6 @@
         1780,
         300
       ],
-      "webhookId": "batch-render-wait",
       "notes": "2 second delay between renders to avoid rate limits"
     },
     {
@@ -284,6 +283,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "9. Final Summary",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -343,18 +349,6 @@
         [
           {
             "node": "4. Split Into Batches",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4. Split Into Batches": {
-      "main": [
-        null,
-        [
-          {
-            "node": "9. Final Summary",
             "type": "main",
             "index": 0
           }

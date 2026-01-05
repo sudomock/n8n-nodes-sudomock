@@ -821,18 +821,24 @@ export class SudoMock implements INodeType {
 				else if (operation === 'deleteMockup') {
 					const mockupUuid = this.getNodeParameter('deleteMockupUuid', i) as string;
 
-					const response = await this.helpers.httpRequestWithAuthentication.call(
+					await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
 						{
 							method: 'DELETE',
 							url: `https://api.sudomock.com/api/v1/mockups/${mockupUuid}`,
-							json: true,
+							// No json: true - DELETE returns 204 No Content (no body)
 						},
 					);
 
+					// Create manual success response for 204 No Content
 					returnData.push({
-						json: response,
+						json: {
+							success: true,
+							message: 'Mockup deleted successfully',
+							mockupUuid: mockupUuid,
+							statusCode: 204,
+						} as IDataObject,
 						pairedItem: { item: i },
 					});
 				}

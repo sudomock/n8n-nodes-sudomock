@@ -68,12 +68,11 @@
       "id": "d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4",
       "name": "Wait (Retry-After)",
       "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
+      "typeVersion": 1,
       "position": [
         900,
         280
       ],
-      "webhookId": "rate-limit-wait-webhook",
       "notes": "Wait for the time specified in retryAfter field"
     },
     {
@@ -129,7 +128,7 @@
       "id": "f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6",
       "name": "Show Rate Limit Details",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.3,
+      "typeVersion": 2,
       "position": [
         900,
         480
@@ -163,7 +162,7 @@
       "id": "g7g7g7g7-g7g7-g7g7-g7g7-g7g7g7g7g7g7",
       "name": "Success Response",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.3,
+      "typeVersion": 2,
       "position": [
         900,
         380
@@ -197,7 +196,7 @@
       "id": "h8h8h8h8-h8h8-h8h8-h8h8-h8h8h8h8h8h8",
       "name": "Retry Success",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3.3,
+      "typeVersion": 2,
       "position": [
         1340,
         280

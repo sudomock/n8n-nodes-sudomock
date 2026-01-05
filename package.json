@@ -1,0 +1,64 @@
+{
+  "name": "n8n-nodes-sudomock",
+  "version": "0.1.1",
+  "description": "n8n community node for SudoMock mockup rendering API - POD automation",
+  "license": "MIT",
+  "homepage": "https://sudomock.com",
+  "author": {
+    "name": "SudoMock",
+    "email": "hello@sudomock.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sudomock/n8n-nodes-sudomock.git"
+  },
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "mockup",
+    "psd",
+    "print-on-demand",
+    "pod",
+    "etsy",
+    "shopify",
+    "automation"
+  ],
+  "main": "index.js",
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/SudoMockApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/SudoMock/SudoMock.node.js"
+    ]
+  },
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "gulp": "^5.0.0",
+    "n8n-workflow": "*",
+    "prettier": "^3.4.0",
+    "typescript": "~5.9.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.2.0"
+}

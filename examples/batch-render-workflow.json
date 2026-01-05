@@ -1,5 +1,5 @@
 {
-  "name": "SudoMock - Sequential Batch Render (Fixed)",
+  "name": "SudoMock - Sequential Batch Render (10 Renders)",
   "nodes": [
     {
       "parameters": {},

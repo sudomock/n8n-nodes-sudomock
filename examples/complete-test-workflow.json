@@ -79,6 +79,20 @@
     },
     {
       "parameters": {
+        "maxItems": 1
+      },
+      "id": "e5555556-5555-5555-5555-555555555555",
+      "name": "4b. Take First Item",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "notes": "Return to single item after List operation"
+    },
+    {
+      "parameters": {
         "operation": "render",
         "mockupUuid": "={{ $('3. Get Mockup Details').item.json.data.uuid }}",
         "smartObjects": {
@@ -259,17 +273,6 @@
         ]
       ]
     },
-    "4. List All Mockups": {
-      "main": [
-        [
-          {
-            "node": "5. Render Mockup",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "5. Render Mockup": {
       "main": [
         [
@@ -308,6 +311,28 @@
         [
           {
             "node": "Test Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. List All Mockups": {
+      "main": [
+        [
+          {
+            "node": "4b. Take First Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4b. Take First Item": {
+      "main": [
+        [
+          {
+            "node": "5. Render Mockup",
             "type": "main",
             "index": 0
           }

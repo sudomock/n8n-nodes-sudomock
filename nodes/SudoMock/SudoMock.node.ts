@@ -3,8 +3,11 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	NodeConnectionTypes,
+	NodeApiError,
 	NodeOperationError,
 	IDataObject,
+	JsonObject,
 } from 'n8n-workflow';
 
 export class SudoMock implements INodeType {
@@ -19,20 +22,15 @@ export class SudoMock implements INodeType {
 		defaults: {
 			name: 'SudoMock',
 		},
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [
 			{
 				name: 'sudoMockApi',
 				required: true,
 			},
 		],
-		requestDefaults: {
-			baseURL: 'https://api.sudomock.com',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-		},
+		usableAsTool: true,
 		properties: [
 			// ============================================
 			// OPERATION SELECT
@@ -44,16 +42,10 @@ export class SudoMock implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Upload PSD',
-						value: 'uploadPsd',
-						description: 'Upload a PSD template from URL',
-						action: 'Upload a PSD template',
-					},
-					{
-						name: 'Render Mockup',
-						value: 'render',
-						description: 'Render mockup with your design',
-						action: 'Render a mockup',
+						name: 'Delete Mockup',
+						value: 'deleteMockup',
+						description: 'Delete a specific mockup template',
+						action: 'Delete a mockup',
 					},
 					{
 						name: 'Get Account Info',
@@ -62,16 +54,22 @@ export class SudoMock implements INodeType {
 						action: 'Get account information',
 					},
 					{
+						name: 'Get Mockup',
+						value: 'getMockup',
+						description: 'Get details of a specific mockup template',
+						action: 'Get mockup details',
+					},
+					{
 						name: 'List Mockups',
 						value: 'listMockups',
 						description: 'List all your uploaded mockup templates',
 						action: 'List mockups',
 					},
 					{
-						name: 'Get Mockup',
-						value: 'getMockup',
-						description: 'Get details of a specific mockup template',
-						action: 'Get mockup details',
+						name: 'Render Mockup',
+						value: 'render',
+						description: 'Render mockup with your design',
+						action: 'Render a mockup',
 					},
 					{
 						name: 'Update Mockup',
@@ -80,10 +78,10 @@ export class SudoMock implements INodeType {
 						action: 'Update mockup name',
 					},
 					{
-						name: 'Delete Mockup',
-						value: 'deleteMockup',
-						description: 'Delete a specific mockup template',
-						action: 'Delete a mockup',
+						name: 'Upload PSD',
+						value: 'uploadPsd',
+						description: 'Upload a PSD template from URL',
+						action: 'Upload a PSD template',
 					},
 				],
 				default: 'render',
@@ -323,10 +321,10 @@ export class SudoMock implements INodeType {
 						type: 'number',
 						typeOptions: {
 							minValue: 100,
-							maxValue: 8000,
+							maxValue: 10000,
 						},
 						default: 1920,
-						description: 'Output width in pixels (100-8000). Height scales proportionally.',
+						description: 'Output width in pixels (100-10000). Height scales proportionally.',
 					},
 					{
 						displayName: 'Quality',
@@ -398,7 +396,7 @@ export class SudoMock implements INodeType {
 						name: 'name',
 						type: 'string',
 						default: '',
-						description: 'Filter mockups by exact name match',
+						description: 'Filter mockups by name (case-insensitive, partial match)',
 					},
 					{
 						displayName: 'Created After',
@@ -876,7 +874,15 @@ export class SudoMock implements INodeType {
 						});
 						continue;
 					}
-					throw new NodeOperationError(this.getNode(), errorMessage, { itemIndex: i });
+					throw new NodeApiError(
+						this.getNode(),
+						error as JsonObject,
+						{
+							message: errorMessage,
+							httpCode: '429',
+							itemIndex: i,
+						},
+					);
 				}
 
 				// Handle other errors
@@ -891,6 +897,17 @@ export class SudoMock implements INodeType {
 						pairedItem: { item: i },
 					});
 					continue;
+				}
+				// NodeApiError for HTTP errors, NodeOperationError for non-HTTP logic errors
+				if (error.statusCode) {
+					throw new NodeApiError(
+						this.getNode(),
+						(error.response?.body ?? error) as JsonObject,
+						{
+							httpCode: String(error.statusCode),
+							itemIndex: i,
+						},
+					);
 				}
 				throw new NodeOperationError(
 					this.getNode(),

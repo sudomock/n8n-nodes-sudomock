@@ -8,6 +8,7 @@ import {
 export class SudoMockApi implements ICredentialType {
 	name = 'sudoMockApi';
 	displayName = 'SudoMock API';
+	icon = 'file:sudomock.svg' as const;
 	documentationUrl = 'https://sudomock.com/docs/authentication';
 	
 	properties: INodeProperties[] = [

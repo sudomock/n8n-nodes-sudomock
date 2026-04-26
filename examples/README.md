@@ -287,7 +287,7 @@ To render multiple smart objects, add more items to the `smartObject` array:
 
 ### PSD Upload Fails
 - Verify the PSD URL is publicly accessible
-- Check that the PSD file is under 300MB
+- Check that the PSD file is within Adobe's official PSD file size limit
 - Ensure the URL returns a valid PSD file (not a download page)
 
 ### Render Fails

@@ -95,7 +95,7 @@ Retrieve your account information, subscription details, and credit usage.
 Upload a PSD template from a public URL.
 
 **Parameters:**
-- **PSD File URL** (required): Public URL to your PSD file (max 300MB)
+- **PSD File URL** (required): Public URL to your PSD file (up to Adobe's official PSD file size limit)
 - **Template Name** (optional): Custom name for the template (auto-generated if not provided)
 
 **Example:**

@@ -102,7 +102,7 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: 'https://your-storage.com/mockup-template.psd',
-				description: 'Public URL to your PSD file (max 300MB). Use S3, GCS, or any public URL.',
+				description: "Public URL to your PSD file (up to Adobe's official PSD file size limit). Use S3, GCS, or any public URL.",
 			},
 			{
 				displayName: 'Template Name',

@@ -201,6 +201,7 @@ Modify export options in "5. Render Mockup":
   "imageFormat": "webp",  // or "png", "jpeg"
   "imageSize": 1920,      // 100-8000 pixels
   "quality": 95,          // 1-100 for webp/jpeg
+  "dpi": 300,             // for print, set dpi (72-2400); jpg/png recommended. Omit for web mockups
   "exportLabel": "custom-label"
 }
 ```

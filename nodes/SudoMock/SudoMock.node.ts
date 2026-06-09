@@ -338,6 +338,18 @@ export class SudoMock implements INodeType {
 						description: 'Quality for JPG/WebP output (1-100)',
 					},
 					{
+						displayName: 'DPI',
+						name: 'dpi',
+						type: 'number',
+						typeOptions: {
+							minValue: 72,
+							maxValue: 2400,
+						},
+						default: 300,
+						description:
+							'Print resolution 72-2400. Embeds a resolution tag in output metadata (JPEG/PNG/WebP). Does not change pixel count, image_size controls that (for a true print file: image_size = print inches x dpi). jpg/png recommended for max compatibility. Leave unset for web mockups.',
+					},
+					{
 						displayName: 'Export Label',
 						name: 'exportLabel',
 						type: 'string',
@@ -569,6 +581,7 @@ export class SudoMock implements INodeType {
 						imageFormat?: string;
 						imageSize?: number;
 						quality?: number;
+						dpi?: number;
 						exportLabel?: string;
 					};
 
@@ -635,6 +648,9 @@ export class SudoMock implements INodeType {
 						}
 						if (exportOptions.quality) {
 							expOpts.quality = exportOptions.quality;
+						}
+						if (exportOptions.dpi) {
+							expOpts.dpi = exportOptions.dpi;
 						}
 						if (Object.keys(expOpts).length > 0) {
 							body.export_options = expOpts;

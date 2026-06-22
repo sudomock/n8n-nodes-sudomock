@@ -10,6 +10,44 @@ import {
 	JsonObject,
 } from 'n8n-workflow';
 
+const TERMINAL_JOB_STATUSES = ['succeeded', 'failed', 'cancelled'];
+
+/**
+ * Poll GET /api/v1/jobs/{render_uuid} until the job reaches a terminal status
+ * (succeeded, failed, cancelled) or the timeout elapses. Uses a capped backoff.
+ */
+async function pollJob(
+	this: IExecuteFunctions,
+	renderUuid: string,
+	timeoutSeconds: number,
+): Promise<IDataObject> {
+	const deadline = Date.now() + timeoutSeconds * 1000;
+	let delayMs = 1500;
+
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		const job = (await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
+			method: 'GET',
+			url: `https://api.sudomock.com/api/v1/jobs/${renderUuid}`,
+			json: true,
+		})) as IDataObject;
+
+		if (typeof job.status === 'string' && TERMINAL_JOB_STATUSES.includes(job.status)) {
+			return job;
+		}
+
+		if (Date.now() + delayMs >= deadline) {
+			throw new NodeOperationError(
+				this.getNode(),
+				`Timed out after ${timeoutSeconds}s waiting for job ${renderUuid} (last status: ${job.status ?? 'unknown'})`,
+			);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, delayMs));
+		delayMs = Math.min(delayMs * 1.5, 8000);
+	}
+}
+
 export class SudoMock implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SudoMock',
@@ -18,7 +56,7 @@ export class SudoMock implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Generate mockup images for Print-on-Demand automation. Upload PSDs, render with your designs.',
+		description: 'Generate mockups and product videos for Print-on-Demand automation. Upload PSDs, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
 		defaults: {
 			name: 'SudoMock',
 		},
@@ -66,10 +104,22 @@ export class SudoMock implements INodeType {
 						action: 'List mockups',
 					},
 					{
+						name: 'Get Job',
+						value: 'getJob',
+						description: 'Get the status and result of an async job by its render UUID',
+						action: 'Get a job',
+					},
+					{
 						name: 'Render Mockup',
 						value: 'render',
 						description: 'Render mockup with your design',
 						action: 'Render a mockup',
+					},
+					{
+						name: 'Render Video',
+						value: 'renderVideo',
+						description: 'Turn a mockup into a short product video (always async)',
+						action: 'Render a video',
 					},
 					{
 						name: 'Update Mockup',
@@ -82,6 +132,60 @@ export class SudoMock implements INodeType {
 						value: 'uploadPsd',
 						description: 'Upload a PSD template from URL',
 						action: 'Upload a PSD template',
+					},
+					{
+						name: 'Webhook: Create Endpoint',
+						value: 'webhookCreate',
+						description: 'Create a webhook endpoint',
+						action: 'Create a webhook endpoint',
+					},
+					{
+						name: 'Webhook: Delete Endpoint',
+						value: 'webhookDelete',
+						description: 'Delete a webhook endpoint',
+						action: 'Delete a webhook endpoint',
+					},
+					{
+						name: 'Webhook: Get Endpoint',
+						value: 'webhookGet',
+						description: 'Get a single webhook endpoint',
+						action: 'Get a webhook endpoint',
+					},
+					{
+						name: 'Webhook: List Deliveries',
+						value: 'webhookListDeliveries',
+						description: 'List delivery attempts for a webhook endpoint',
+						action: 'List webhook deliveries',
+					},
+					{
+						name: 'Webhook: List Endpoints',
+						value: 'webhookList',
+						description: 'List your webhook endpoints',
+						action: 'List webhook endpoints',
+					},
+					{
+						name: 'Webhook: Replay Delivery',
+						value: 'webhookReplayDelivery',
+						description: 'Replay a single webhook delivery',
+						action: 'Replay a webhook delivery',
+					},
+					{
+						name: 'Webhook: Rotate Secret',
+						value: 'webhookRotateSecret',
+						description: 'Rotate the signing secret of a webhook endpoint',
+						action: 'Rotate a webhook secret',
+					},
+					{
+						name: 'Webhook: Send Test',
+						value: 'webhookTest',
+						description: 'Send a test event to a webhook endpoint',
+						action: 'Send a webhook test',
+					},
+					{
+						name: 'Webhook: Update Endpoint',
+						value: 'webhookUpdate',
+						description: 'Update a webhook endpoint',
+						action: 'Update a webhook endpoint',
 					},
 				],
 				default: 'render',
@@ -358,6 +462,308 @@ export class SudoMock implements INodeType {
 					},
 				],
 			},
+			{
+				displayName: 'Run Asynchronously',
+				name: 'isAsync',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						operation: ['render'],
+					},
+				},
+				default: false,
+				description:
+					'Whether to process the render in the background. Returns a render_uuid (kind: render) immediately instead of the inline result. Track it with the Get Job operation.',
+			},
+
+			// ============================================
+			// RENDER VIDEO PARAMETERS
+			// ============================================
+			{
+				displayName: 'Mockup UUID',
+				name: 'videoMockupUuid',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['renderVideo'],
+					},
+				},
+				default: '',
+				placeholder: 'c315f78f-d2c7-4541-b240-a9372842de94',
+				description: 'UUID of the uploaded mockup template to animate',
+			},
+			{
+				displayName: 'Smart Objects',
+				name: 'videoSmartObjects',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				displayOptions: {
+					show: {
+						operation: ['renderVideo'],
+					},
+				},
+				default: {},
+				placeholder: 'Add Smart Object',
+				description: 'Smart objects to fill with your designs, same format as Render Mockup',
+				options: [
+					{
+						name: 'items',
+						displayName: 'Smart Object',
+						values: [
+							{
+								displayName: 'Smart Object UUID',
+								name: 'uuid',
+								type: 'string',
+								default: '',
+								required: true,
+								description: 'UUID of the smart object (from Upload PSD response)',
+							},
+							{
+								displayName: 'Design URL',
+								name: 'assetUrl',
+								type: 'string',
+								default: '',
+								required: true,
+								placeholder: 'https://cdn.example.com/design.png',
+								description: 'URL to your design image (PNG, JPG, WebP)',
+							},
+							{
+								displayName: 'Fit Mode',
+								name: 'fit',
+								type: 'options',
+								options: [
+									{ name: 'Fill', value: 'fill', description: 'Stretch to fill entire area' },
+									{ name: 'Contain', value: 'contain', description: 'Fit inside, may leave space' },
+									{ name: 'Cover', value: 'cover', description: 'Fill area, may crop edges (recommended)' },
+								],
+								default: 'cover',
+								description: 'How to fit the design in the smart object bounds',
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'Video Options',
+				name: 'videoOptions',
+				type: 'collection',
+				placeholder: 'Add Video Option',
+				displayOptions: {
+					show: {
+						operation: ['renderVideo'],
+					},
+				},
+				default: {},
+				options: [
+					{
+						displayName: 'Duration (Seconds)',
+						name: 'durationSeconds',
+						type: 'number',
+						typeOptions: {
+							minValue: 1,
+						},
+						default: 5,
+						description: 'Length of the clip in seconds. Longer clips cost more credits.',
+					},
+					{
+						displayName: 'Audio',
+						name: 'audio',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to include a generated audio track',
+					},
+					{
+						displayName: 'Advanced Model',
+						name: 'advancedModel',
+						type: 'string',
+						default: '',
+						placeholder: 'video-pro',
+						description:
+							'Opaque identifier selecting the quality tier (e.g. video-standard, video-pro). It is an opaque label, not part of the stable contract.',
+					},
+				],
+			},
+			{
+				displayName: 'Wait for Completion',
+				name: 'videoWaitForCompletion',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						operation: ['renderVideo'],
+					},
+				},
+				default: false,
+				description:
+					'Whether to poll the job until it finishes and return the result, instead of returning the queued job immediately',
+			},
+			{
+				displayName: 'Poll Timeout (Seconds)',
+				name: 'videoPollTimeout',
+				type: 'number',
+				typeOptions: {
+					minValue: 5,
+				},
+				displayOptions: {
+					show: {
+						operation: ['renderVideo'],
+						videoWaitForCompletion: [true],
+					},
+				},
+				default: 300,
+				description: 'Maximum time to wait for the video job to finish',
+			},
+
+			// ============================================
+			// GET JOB PARAMETERS
+			// ============================================
+			{
+				displayName: 'Render UUID',
+				name: 'jobRenderUuid',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['getJob'],
+					},
+				},
+				default: '',
+				placeholder: '9d4e2b51-0c7a-4f8e-bb1c-2a6f9e3d8c10',
+				description: 'The render_uuid returned by an async render, upload, or video request',
+			},
+			{
+				displayName: 'Wait for Completion',
+				name: 'jobWaitForCompletion',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						operation: ['getJob'],
+					},
+				},
+				default: false,
+				description:
+					'Whether to poll the job until it reaches a terminal status (succeeded, failed, or cancelled) instead of returning the current state once',
+			},
+			{
+				displayName: 'Poll Timeout (Seconds)',
+				name: 'jobPollTimeout',
+				type: 'number',
+				typeOptions: {
+					minValue: 5,
+				},
+				displayOptions: {
+					show: {
+						operation: ['getJob'],
+						jobWaitForCompletion: [true],
+					},
+				},
+				default: 300,
+				description: 'Maximum time to wait for the job to finish',
+			},
+
+			// ============================================
+			// WEBHOOK ENDPOINT PARAMETERS
+			// ============================================
+			{
+				displayName: 'Endpoint URL',
+				name: 'webhookEndpointUrl',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['webhookCreate'],
+					},
+				},
+				default: '',
+				placeholder: 'https://your-app.com/webhooks/sudomock',
+				description: 'HTTPS URL that SudoMock will POST signed events to',
+			},
+			{
+				displayName: 'Events',
+				name: 'webhookEvents',
+				type: 'multiOptions',
+				displayOptions: {
+					show: {
+						operation: ['webhookCreate', 'webhookUpdate'],
+					},
+				},
+				options: [
+					{ name: 'render.succeeded', value: 'render.succeeded' },
+					{ name: 'render.failed', value: 'render.failed' },
+					{ name: 'upload.succeeded', value: 'upload.succeeded' },
+					{ name: 'video.succeeded', value: 'video.succeeded' },
+					{ name: 'video.failed', value: 'video.failed' },
+					{ name: 'webhook.test', value: 'webhook.test' },
+				],
+				default: [],
+				description:
+					'Events this endpoint receives. Leave empty to subscribe to all events, including ones added in the future.',
+			},
+			{
+				displayName: 'Webhook Endpoint ID',
+				name: 'webhookId',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: [
+							'webhookGet',
+							'webhookUpdate',
+							'webhookDelete',
+							'webhookRotateSecret',
+							'webhookTest',
+							'webhookListDeliveries',
+							'webhookReplayDelivery',
+						],
+					},
+				},
+				default: '',
+				description: 'ID of the webhook endpoint (from Webhook: List Endpoints)',
+			},
+			{
+				displayName: 'Update Fields',
+				name: 'webhookUpdateFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				displayOptions: {
+					show: {
+						operation: ['webhookUpdate'],
+					},
+				},
+				default: {},
+				options: [
+					{
+						displayName: 'Endpoint URL',
+						name: 'url',
+						type: 'string',
+						default: '',
+						placeholder: 'https://your-app.com/webhooks/sudomock',
+						description: 'New HTTPS URL for the endpoint',
+					},
+					{
+						displayName: 'Enabled',
+						name: 'enabled',
+						type: 'boolean',
+						default: true,
+						description: 'Whether the endpoint is active and receives deliveries',
+					},
+				],
+			},
+			{
+				displayName: 'Delivery ID',
+				name: 'webhookDeliveryId',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['webhookReplayDelivery'],
+					},
+				},
+				default: '',
+				description: 'ID of the delivery to replay (from Webhook: List Deliveries)',
+			},
 
 			// ============================================
 			// LIST MOCKUPS PARAMETERS
@@ -632,10 +1038,14 @@ export class SudoMock implements INodeType {
 					});
 
 					// Request body
+					const isAsync = this.getNodeParameter('isAsync', i, false) as boolean;
 					const body: Record<string, unknown> = {
 						mockup_uuid: mockupUuid,
 						smart_objects: smartObjects,
 					};
+					if (isAsync) {
+						body.is_async = true;
+					}
 
 					// Export options
 					if (Object.keys(exportOptions).length > 0) {
@@ -689,6 +1099,292 @@ export class SudoMock implements INodeType {
 						json: outputJson,
 						pairedItem: { item: i },
 					});
+				}
+
+				// ========================================
+				// RENDER VIDEO (always async)
+				// ========================================
+				else if (operation === 'renderVideo') {
+					const mockupUuid = this.getNodeParameter('videoMockupUuid', i) as string;
+					const smartObjectsData = this.getNodeParameter(
+						'videoSmartObjects.items',
+						i,
+						[],
+					) as Array<{ uuid: string; assetUrl: string; fit: string }>;
+					const videoOptions = this.getNodeParameter('videoOptions', i, {}) as {
+						durationSeconds?: number;
+						audio?: boolean;
+						advancedModel?: string;
+					};
+
+					const smartObjects = smartObjectsData.map((so) => ({
+						uuid: so.uuid,
+						asset: { url: so.assetUrl, fit: so.fit },
+					}));
+
+					const body: Record<string, unknown> = {
+						mockup_uuid: mockupUuid,
+						smart_objects: smartObjects,
+					};
+
+					const video: Record<string, unknown> = {};
+					if (videoOptions.durationSeconds !== undefined) {
+						video.duration_seconds = videoOptions.durationSeconds;
+					}
+					if (videoOptions.audio !== undefined) {
+						video.audio = videoOptions.audio;
+					}
+					if (videoOptions.advancedModel) {
+						video.advanced_model = videoOptions.advancedModel;
+					}
+					if (Object.keys(video).length > 0) {
+						body.video = video;
+					}
+
+					const accepted = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: 'https://api.sudomock.com/api/v1/renders/video',
+							body,
+							json: true,
+						},
+					);
+
+					const waitForCompletion = this.getNodeParameter(
+						'videoWaitForCompletion',
+						i,
+						false,
+					) as boolean;
+
+					if (waitForCompletion && accepted?.render_uuid) {
+						const timeout = this.getNodeParameter('videoPollTimeout', i, 300) as number;
+						const job = await pollJob.call(this, accepted.render_uuid as string, timeout);
+						const out: IDataObject = { ...(job as IDataObject) };
+						if (job?.result_url) {
+							out.resultUrl = job.result_url;
+						}
+						returnData.push({ json: out, pairedItem: { item: i } });
+					} else {
+						returnData.push({ json: accepted as IDataObject, pairedItem: { item: i } });
+					}
+				}
+
+				// ========================================
+				// GET JOB
+				// ========================================
+				else if (operation === 'getJob') {
+					const renderUuid = this.getNodeParameter('jobRenderUuid', i) as string;
+					const waitForCompletion = this.getNodeParameter(
+						'jobWaitForCompletion',
+						i,
+						false,
+					) as boolean;
+
+					let job: IDataObject;
+					if (waitForCompletion) {
+						const timeout = this.getNodeParameter('jobPollTimeout', i, 300) as number;
+						job = (await pollJob.call(this, renderUuid, timeout)) as IDataObject;
+					} else {
+						job = (await this.helpers.httpRequestWithAuthentication.call(
+							this,
+							'sudoMockApi',
+							{
+								method: 'GET',
+								url: `https://api.sudomock.com/api/v1/jobs/${renderUuid}`,
+								json: true,
+							},
+						)) as IDataObject;
+					}
+
+					// Surface the result for convenience: result_url (render/video) or mockup_uuid (upload).
+					const out: IDataObject = { ...job };
+					if (job.kind === 'upload' && job.mockup_uuid) {
+						out.resultMockupUuid = job.mockup_uuid;
+					} else if (job.result_url) {
+						out.resultUrl = job.result_url;
+					}
+
+					returnData.push({ json: out, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: LIST ENDPOINTS
+				// ========================================
+				else if (operation === 'webhookList') {
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: 'https://api.sudomock.com/api/v1/webhooks',
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: GET ENDPOINT
+				// ========================================
+				else if (operation === 'webhookGet') {
+					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: `https://api.sudomock.com/api/v1/webhooks/${webhookId}`,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: CREATE ENDPOINT
+				// ========================================
+				else if (operation === 'webhookCreate') {
+					const url = this.getNodeParameter('webhookEndpointUrl', i) as string;
+					const events = this.getNodeParameter('webhookEvents', i, []) as string[];
+					const body: Record<string, unknown> = { url };
+					if (events.length > 0) {
+						body.events = events;
+					}
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: 'https://api.sudomock.com/api/v1/webhooks',
+							body,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: UPDATE ENDPOINT
+				// ========================================
+				else if (operation === 'webhookUpdate') {
+					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					const events = this.getNodeParameter('webhookEvents', i, []) as string[];
+					const updateFields = this.getNodeParameter('webhookUpdateFields', i, {}) as {
+						url?: string;
+						enabled?: boolean;
+					};
+					const body: Record<string, unknown> = {};
+					if (updateFields.url) {
+						body.url = updateFields.url;
+					}
+					if (updateFields.enabled !== undefined) {
+						body.enabled = updateFields.enabled;
+					}
+					if (events.length > 0) {
+						body.events = events;
+					}
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'PATCH',
+							url: `https://api.sudomock.com/api/v1/webhooks/${webhookId}`,
+							body,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: DELETE ENDPOINT
+				// ========================================
+				else if (operation === 'webhookDelete') {
+					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
+						method: 'DELETE',
+						url: `https://api.sudomock.com/api/v1/webhooks/${webhookId}`,
+					});
+					returnData.push({
+						json: {
+							success: true,
+							message: 'Webhook endpoint deleted successfully',
+							webhookId,
+							statusCode: 204,
+						} as IDataObject,
+						pairedItem: { item: i },
+					});
+				}
+
+				// ========================================
+				// WEBHOOK: ROTATE SECRET
+				// ========================================
+				else if (operation === 'webhookRotateSecret') {
+					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: `https://api.sudomock.com/api/v1/webhooks/${webhookId}/rotate-secret`,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: SEND TEST
+				// ========================================
+				else if (operation === 'webhookTest') {
+					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: `https://api.sudomock.com/api/v1/webhooks/${webhookId}/test`,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: LIST DELIVERIES
+				// ========================================
+				else if (operation === 'webhookListDeliveries') {
+					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: `https://api.sudomock.com/api/v1/webhooks/${webhookId}/deliveries`,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// WEBHOOK: REPLAY DELIVERY
+				// ========================================
+				else if (operation === 'webhookReplayDelivery') {
+					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					const deliveryId = this.getNodeParameter('webhookDeliveryId', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: `https://api.sudomock.com/api/v1/webhooks/${webhookId}/deliveries/${deliveryId}/replay`,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
 				}
 
 				// ========================================

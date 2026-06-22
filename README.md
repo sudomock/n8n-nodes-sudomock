@@ -17,7 +17,25 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Delete Mockup**: Delete a specific mockup template
 
 ### Rendering
-- **Render Mockup**: Generate mockups by combining templates with your designs
+- **Render Mockup**: Generate mockups by combining templates with your designs. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `render_uuid` to track with **Get Job**.
+- **Render Video**: Turn a mockup into a short product video (always asynchronous). Choose a duration, optionally add audio, and optionally **Wait for Completion** to return the finished clip.
+
+### Async Jobs
+- **Get Job**: Get the status and result of an async render, upload, or video job by its `render_uuid`. Follows the status state machine (`queued` → `dispatched` → `running` → `succeeded` | `failed` | `cancelled`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload). Optionally **Wait for Completion** to poll until the job finishes.
+
+### Webhooks
+Manage webhook endpoints that receive a signed HTTPS request the moment a job finishes:
+- **Webhook: List Endpoints**
+- **Webhook: Get Endpoint**
+- **Webhook: Create Endpoint** (choose any of the six canonical events, or leave empty for all)
+- **Webhook: Update Endpoint**
+- **Webhook: Delete Endpoint**
+- **Webhook: Rotate Secret**
+- **Webhook: Send Test**
+- **Webhook: List Deliveries**
+- **Webhook: Replay Delivery**
+
+Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `webhook.test`. Signatures are HMAC-SHA256 over `{timestamp}.{rawBody}` (header `X-SudoMock-Signature`, with `X-SudoMock-Timestamp`, 300s replay window). See https://sudomock.com/docs/api/webhooks.
 
 ## Installation
 
@@ -243,6 +261,50 @@ Mockup UUID: c315f78f-d2c7-4541-b240-a9372842de94
 
 **Output:**
 Deletion confirmation
+
+---
+
+### Render Video
+
+Turn a mockup into a short product video. Always asynchronous: returns a `render_uuid` you can track with **Get Job**.
+
+**Parameters:**
+- **Mockup UUID** (required): UUID of the mockup to animate
+- **Smart Objects** (required): one or more smart objects with a Design URL and Fit Mode
+- **Video Options**:
+  - **Duration (Seconds)**: clip length (default 5)
+  - **Audio**: include a generated audio track (default true)
+  - **Advanced Model**: opaque quality-tier identifier (e.g. `video-standard`, `video-pro`); not part of the stable contract
+- **Wait for Completion**: poll the job and return the finished clip instead of the queued job
+- **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
+
+**Output:**
+The 202 acknowledgement (`render_uuid`, `kind`, `status`, `status_url`, `estimated_credits`, ...), or the finished job (with `result_url` / `resultUrl`) when Wait for Completion is on.
+
+---
+
+### Get Job
+
+Track an asynchronous render, upload, or video job by its `render_uuid`.
+
+**Parameters:**
+- **Render UUID** (required): the `render_uuid` from an async render, upload, or video request
+- **Wait for Completion**: poll until a terminal status (`succeeded`, `failed`, `cancelled`)
+- **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
+
+**Output:**
+The job object. On success it surfaces `result_url` / `resultUrl` (render/video) or `mockup_uuid` / `resultMockupUuid` (upload), plus `credits_charged` and `payg` when applicable.
+
+---
+
+### Webhook Operations
+
+Manage webhook endpoints and their deliveries. See the [Webhooks](#webhooks) feature list above for the full operation set and the canonical event types.
+
+**Common parameters:**
+- **Webhook Endpoint ID** (required for get/update/delete/rotate/test/deliveries/replay)
+- **Endpoint URL** (create) and **Events** (create/update): leave Events empty to subscribe to all
+- **Delivery ID** (replay)
 
 ---
 

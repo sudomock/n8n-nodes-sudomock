@@ -18,24 +18,27 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 ### Rendering
 - **Render Mockup**: Generate mockups by combining templates with your designs. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `render_uuid` to track with **Get Job**.
-- **Render Video**: Turn a mockup into a short product video (always asynchronous). Choose a duration, optionally add audio, and optionally **Wait for Completion** to return the finished clip.
+- **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Pick a duration valid for the model, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
 
 ### Async Jobs
-- **Get Job**: Get the status and result of an async render, upload, or video job by its `render_uuid`. Follows the status state machine (`queued` → `dispatched` → `running` → `succeeded` | `failed` | `cancelled`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload). Optionally **Wait for Completion** to poll until the job finishes.
+- **Get Job**: Get the status and result of an async render, upload, or video job by its `render_uuid`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload). Optionally **Wait for Completion** to poll until the job finishes.
+- **List Jobs**: List your async render, upload, and video jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
 
 ### Webhooks
 Manage webhook endpoints that receive a signed HTTPS request the moment a job finishes:
 - **Webhook: List Endpoints**
 - **Webhook: Get Endpoint**
-- **Webhook: Create Endpoint** (choose any of the six canonical events, or leave empty for all)
+- **Webhook: Create Endpoint** (set an optional description and choose any of the six canonical events, or leave empty for all)
 - **Webhook: Update Endpoint**
 - **Webhook: Delete Endpoint**
 - **Webhook: Rotate Secret**
 - **Webhook: Send Test**
 - **Webhook: List Deliveries**
 - **Webhook: Replay Delivery**
+- **Webhook: Replay Failed Deliveries**
+- **Webhook: Events Feed** (recent deliveries across all of your endpoints)
 
-Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `webhook.test`. Signatures are HMAC-SHA256 over `{timestamp}.{rawBody}` (header `X-SudoMock-Signature`, with `X-SudoMock-Timestamp`, 300s replay window). See https://sudomock.com/docs/api/webhooks.
+Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `webhook.test`. Deliveries are HMAC-signed; see https://sudomock.com/docs/api/webhooks for the current signature header and verification details.
 
 ## Installation
 
@@ -211,7 +214,7 @@ Generate a mockup by filling smart objects with your designs.
 
 - **Export Options** (optional):
   - Image Format: WebP (recommended), PNG, or JPEG
-  - Image Size: Width in pixels (100-8000)
+  - Image Size: Width in pixels (100-10000, default 2048)
   - Quality: 1-100 for JPG/WebP
   - Export Label: Custom label for file naming
 
@@ -266,15 +269,19 @@ Deletion confirmation
 
 ### Render Video
 
-Turn a mockup into a short product video. Always asynchronous: returns a `render_uuid` you can track with **Get Job**.
+Turn a mockup (or an existing image URL) into a short product video. Always asynchronous: returns a `render_uuid` you can track with **Get Job**.
 
 **Parameters:**
-- **Mockup UUID** (required): UUID of the mockup to animate
-- **Smart Objects** (required): one or more smart objects with a Design URL and Fit Mode
+- **Input Mode**: `Render Mockup` (render a mockup with your designs first) or `Animate Image URL` (animate a public image directly)
+- **Mockup UUID** (required in Render Mockup mode): UUID of the mockup to animate
+- **Smart Objects** (required in Render Mockup mode): one or more smart objects with a Design URL and Fit Mode
+- **Image URL** (required in Animate Image URL mode): public HTTPS image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.avif`)
+- **Webhook URL** (optional): one-off HTTPS URL notified when this job finishes
 - **Video Options**:
-  - **Duration (Seconds)**: clip length (default 5)
-  - **Audio**: include a generated audio track (default true)
-  - **Advanced Model**: opaque quality-tier identifier (e.g. `video-standard`, `video-pro`); not part of the stable contract
+  - **Duration (Seconds)**: clip length (default 4; must be an allowed duration for the chosen model — the default model `veo-3.1-fast` allows 4, 6, or 8; max 15)
+  - **Audio**: include a generated audio track (default false; may cost extra credits depending on model)
+  - **Motion**: `ambient` (default) or `showcase`
+  - **Advanced Model**: optional override pinning a roster model (`veo-3.1-fast`, `kling-v3-pro`, `kling-2.6-pro`, `seedance-2.0`, `wan-2.5`); leave empty to auto-pick by plan tier
 - **Wait for Completion**: poll the job and return the finished clip instead of the queued job
 - **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
 
@@ -297,14 +304,32 @@ The job object. On success it surfaces `result_url` / `resultUrl` (render/video)
 
 ---
 
+### List Jobs
+
+List your async render, upload, and video jobs (newest first, keyset paginated).
+
+**Parameters (all optional, under Filters):**
+- **Kind**: `render`, `upload`, or `video`
+- **Mockup UUID**: only jobs derived from this source mockup
+- **Limit**: 1-50 (default 20)
+- **Cursor**: opaque `next_cursor` from a previous response for pagination
+
+**Output:**
+`{ jobs: [...], next_cursor }`.
+
+> **Note:** Bulk "delete all mockups" is intentionally not exposed — the BE gates `DELETE /mockups/all` to dashboard (Bearer/JWT) auth only, so it is not callable with an API key. Delete mockups individually with **Delete Mockup**, or use the SudoMock dashboard.
+
+---
+
 ### Webhook Operations
 
 Manage webhook endpoints and their deliveries. See the [Webhooks](#webhooks) feature list above for the full operation set and the canonical event types.
 
 **Common parameters:**
-- **Webhook Endpoint ID** (required for get/update/delete/rotate/test/deliveries/replay)
-- **Endpoint URL** (create) and **Events** (create/update): leave Events empty to subscribe to all
+- **Webhook Endpoint ID** (required for get/update/delete/rotate/test/deliveries/replay/replay-failed)
+- **Endpoint URL** + **Description** (create) and **Events** (create/update): leave Events empty to subscribe to all
 - **Delivery ID** (replay)
+- **Webhook: Events Feed** takes no parameters (returns recent deliveries across all your endpoints)
 
 ---
 
@@ -315,7 +340,7 @@ Ready-to-use n8n workflows are available in the [`examples/`](./examples) folder
 ### 1. Complete API Test Workflow
 **File**: [`examples/complete-test-workflow.json`](./examples/complete-test-workflow.json)
 
-Tests all 7 operations in sequence:
+Tests the core mockup operations in sequence:
 - Get Account Info → Upload PSD → Get Mockup → List Mockups
 - Render Mockup → Update Name → Verify Update → Delete Mockup
 

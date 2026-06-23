@@ -13,12 +13,12 @@ import {
 const TERMINAL_JOB_STATUSES = ['succeeded', 'failed', 'cancelled'];
 
 /**
- * Poll GET /api/v1/jobs/{render_uuid} until the job reaches a terminal status
+ * Poll GET /api/v1/jobs/{job_id} until the job reaches a terminal status
  * (succeeded, failed, cancelled) or the timeout elapses. Uses a capped backoff.
  */
 async function pollJob(
 	this: IExecuteFunctions,
-	renderUuid: string,
+	jobId: string,
 	timeoutSeconds: number,
 ): Promise<IDataObject> {
 	const deadline = Date.now() + timeoutSeconds * 1000;
@@ -28,7 +28,7 @@ async function pollJob(
 	while (true) {
 		const job = (await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
 			method: 'GET',
-			url: `https://api.sudomock.com/api/v1/jobs/${renderUuid}`,
+			url: `https://api.sudomock.com/api/v1/jobs/${jobId}`,
 			json: true,
 		})) as IDataObject;
 
@@ -39,7 +39,7 @@ async function pollJob(
 		if (Date.now() + delayMs >= deadline) {
 			throw new NodeOperationError(
 				this.getNode(),
-				`Timed out after ${timeoutSeconds}s waiting for job ${renderUuid} (last status: ${job.status ?? 'unknown'})`,
+				`Timed out after ${timeoutSeconds}s waiting for job ${jobId} (last status: ${job.status ?? 'unknown'})`,
 			);
 		}
 
@@ -491,7 +491,7 @@ export class SudoMock implements INodeType {
 				},
 				default: false,
 				description:
-					'Whether to process the render in the background. Returns a render_uuid (kind: render) immediately instead of the inline result. Track it with the Get Job operation.',
+					'Whether to process the render in the background. Returns a job_id (kind: render) immediately instead of the inline result. Track it with the Get Job operation.',
 			},
 
 			// ============================================
@@ -712,8 +712,8 @@ export class SudoMock implements INodeType {
 			// GET JOB PARAMETERS
 			// ============================================
 			{
-				displayName: 'Render UUID',
-				name: 'jobRenderUuid',
+				displayName: 'Job ID',
+				name: 'jobId',
 				type: 'string',
 				required: true,
 				displayOptions: {
@@ -723,7 +723,7 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: '9d4e2b51-0c7a-4f8e-bb1c-2a6f9e3d8c10',
-				description: 'The render_uuid returned by an async render, upload, or video request',
+				description: 'The job_id returned by an async render, upload, or video request',
 			},
 			{
 				displayName: 'Wait for Completion',
@@ -1335,9 +1335,9 @@ export class SudoMock implements INodeType {
 						false,
 					) as boolean;
 
-					if (waitForCompletion && accepted?.render_uuid) {
+					if (waitForCompletion && accepted?.job_id) {
 						const timeout = this.getNodeParameter('videoPollTimeout', i, 300) as number;
-						const job = await pollJob.call(this, accepted.render_uuid as string, timeout);
+						const job = await pollJob.call(this, accepted.job_id as string, timeout);
 						const out: IDataObject = { ...(job as IDataObject) };
 						if (job?.result_url) {
 							out.resultUrl = job.result_url;
@@ -1352,7 +1352,7 @@ export class SudoMock implements INodeType {
 				// GET JOB
 				// ========================================
 				else if (operation === 'getJob') {
-					const renderUuid = this.getNodeParameter('jobRenderUuid', i) as string;
+					const jobId = this.getNodeParameter('jobId', i) as string;
 					const waitForCompletion = this.getNodeParameter(
 						'jobWaitForCompletion',
 						i,
@@ -1362,14 +1362,14 @@ export class SudoMock implements INodeType {
 					let job: IDataObject;
 					if (waitForCompletion) {
 						const timeout = this.getNodeParameter('jobPollTimeout', i, 300) as number;
-						job = (await pollJob.call(this, renderUuid, timeout)) as IDataObject;
+						job = (await pollJob.call(this, jobId, timeout)) as IDataObject;
 					} else {
 						job = (await this.helpers.httpRequestWithAuthentication.call(
 							this,
 							'sudoMockApi',
 							{
 								method: 'GET',
-								url: `https://api.sudomock.com/api/v1/jobs/${renderUuid}`,
+								url: `https://api.sudomock.com/api/v1/jobs/${jobId}`,
 								json: true,
 							},
 						)) as IDataObject;

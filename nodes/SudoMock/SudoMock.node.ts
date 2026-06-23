@@ -106,7 +106,7 @@ export class SudoMock implements INodeType {
 					{
 						name: 'Get Job',
 						value: 'getJob',
-						description: 'Get the status and result of an async job by its render UUID',
+						description: 'Poll an async job by its job_id (GET /jobs/{job_id}) to get its status and result',
 						action: 'Get a job',
 					},
 					{
@@ -239,6 +239,19 @@ export class SudoMock implements INodeType {
 				placeholder: 'T-Shirt Mockup Front',
 				description: 'Human-readable name for the template. Auto-generated from filename if empty.',
 			},
+			{
+				displayName: 'Run Asynchronously',
+				name: 'uploadIsAsync',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						operation: ['uploadPsd'],
+					},
+				},
+				default: false,
+				description:
+					'Whether to queue the upload in the background. Returns a job_id (kind: upload) immediately instead of the inline result. Track it with the Get Job operation; result_url carries the new mockup_uuid on success.',
+			},
 
 			// ============================================
 			// RENDER PARAMETERS
@@ -302,7 +315,7 @@ export class SudoMock implements INodeType {
 									{
 										name: 'Fill',
 										value: 'fill',
-										description: 'Stretch to fill entire area',
+										description: 'Stretch to fill entire area (default)',
 									},
 									{
 										name: 'Contain',
@@ -312,10 +325,10 @@ export class SudoMock implements INodeType {
 									{
 										name: 'Cover',
 										value: 'cover',
-										description: 'Fill area, may crop edges (recommended)',
+										description: 'Fill area, may crop edges',
 									},
 								],
-								default: 'cover',
+								default: 'fill',
 								description: 'How to fit the design in the smart object bounds',
 							},
 							{
@@ -335,6 +348,61 @@ export class SudoMock implements INodeType {
 										},
 										default: 0,
 										description: 'Rotation angle in degrees',
+									},
+									{
+										displayName: 'Base64 Image',
+										name: 'base64',
+										type: 'string',
+										default: '',
+										description:
+											'Raw base64-encoded image bytes (no data: prefix). Alternative to Design URL; eliminates server-side download latency. If set, takes priority over the URL.',
+									},
+									{
+										displayName: 'Content Type',
+										name: 'contentType',
+										type: 'options',
+										options: [
+											{ name: 'PNG', value: 'image/png' },
+											{ name: 'JPEG', value: 'image/jpeg' },
+											{ name: 'WebP', value: 'image/webp' },
+											{ name: 'GIF', value: 'image/gif' },
+										],
+										default: 'image/png',
+										description: 'MIME type of the Base64 Image. Defaults to image/png if omitted.',
+									},
+									{
+										displayName: 'Custom Width',
+										name: 'sizeWidth',
+										type: 'number',
+										typeOptions: {
+											minValue: 1,
+										},
+										default: 0,
+										description: 'Custom asset width override in pixels. 0 = use smart object bounds.',
+									},
+									{
+										displayName: 'Custom Height',
+										name: 'sizeHeight',
+										type: 'number',
+										typeOptions: {
+											minValue: 1,
+										},
+										default: 0,
+										description: 'Custom asset height override in pixels. 0 = use smart object bounds.',
+									},
+									{
+										displayName: 'Position Top',
+										name: 'positionTop',
+										type: 'number',
+										default: 0,
+										description: 'Custom position top offset in pixels',
+									},
+									{
+										displayName: 'Position Left',
+										name: 'positionLeft',
+										type: 'number',
+										default: 0,
+										description: 'Custom position left offset in pixels',
 									},
 									{
 										displayName: 'Color Overlay (Hex)',
@@ -360,7 +428,7 @@ export class SudoMock implements INodeType {
 											{ name: 'Hard Light', value: 'hard-light' },
 											{ name: 'Soft Light', value: 'soft-light' },
 										],
-										default: 'multiply',
+										default: 'normal',
 										description: 'Blend mode for color overlay',
 									},
 									{
@@ -395,6 +463,40 @@ export class SudoMock implements INodeType {
 										},
 										default: 100,
 										description: 'Layer opacity (0-100)',
+									},
+									{
+										displayName: 'Saturation',
+										name: 'saturation',
+										type: 'number',
+										typeOptions: {
+											minValue: -100,
+											maxValue: 100,
+										},
+										default: 0,
+										description: 'Saturation adjustment (-100 to 100). 0=no change, -100=grayscale.',
+									},
+									{
+										displayName: 'Vibrance',
+										name: 'vibrance',
+										type: 'number',
+										typeOptions: {
+											minValue: -100,
+											maxValue: 100,
+										},
+										default: 0,
+										description:
+											'Vibrance adjustment (-100 to 100). Similar to saturation but preserves skin tones.',
+									},
+									{
+										displayName: 'Blur',
+										name: 'blur',
+										type: 'number',
+										typeOptions: {
+											minValue: 0,
+											maxValue: 100,
+										},
+										default: 0,
+										description: 'Gaussian blur amount (0=sharp, 100=max blur)',
 									},
 								],
 							},
@@ -445,8 +547,8 @@ export class SudoMock implements INodeType {
 							minValue: 100,
 							maxValue: 10000,
 						},
-						default: 1920,
-						description: 'Output width in pixels (100-10000). Height scales proportionally.',
+						default: 2048,
+						description: 'Output width in pixels (100-10000). Height scales proportionally. Powers of 2 (1024, 2048, 4096) recommended.',
 					},
 					{
 						displayName: 'Quality',
@@ -456,8 +558,8 @@ export class SudoMock implements INodeType {
 							minValue: 1,
 							maxValue: 100,
 						},
-						default: 95,
-						description: 'Quality for JPG/WebP output (1-100)',
+						default: 90,
+						description: 'Quality for JPG/WebP output (1-100). Ignored for PNG (always lossless).',
 					},
 					{
 						displayName: 'DPI',
@@ -931,6 +1033,112 @@ export class SudoMock implements INodeType {
 				default: '',
 				description: 'ID of the delivery to replay (from Webhook: List Deliveries)',
 			},
+			{
+				displayName: 'Filters',
+				name: 'webhookDeliveriesFilters',
+				type: 'collection',
+				placeholder: 'Add Filter',
+				displayOptions: {
+					show: {
+						operation: ['webhookListDeliveries'],
+					},
+				},
+				default: {},
+				options: [
+					{
+						displayName: 'Status',
+						name: 'status',
+						type: 'options',
+						options: [
+							{ name: 'Pending', value: 'pending' },
+							{ name: 'Delivered', value: 'delivered' },
+							{ name: 'Failed', value: 'failed' },
+							{ name: 'Dead', value: 'dead' },
+						],
+						default: 'delivered',
+						description: 'Only return deliveries with this status',
+					},
+					{
+						displayName: 'Event Type',
+						name: 'eventType',
+						type: 'options',
+						options: [
+							{ name: 'render.succeeded', value: 'render.succeeded' },
+							{ name: 'render.failed', value: 'render.failed' },
+							{ name: 'upload.succeeded', value: 'upload.succeeded' },
+							{ name: 'video.succeeded', value: 'video.succeeded' },
+							{ name: 'video.failed', value: 'video.failed' },
+							{ name: 'webhook.test', value: 'webhook.test' },
+						],
+						default: 'render.succeeded',
+						description: 'Only return deliveries for this event type',
+					},
+					{
+						displayName: 'Limit',
+						name: 'limit',
+						type: 'number',
+						typeOptions: {
+							minValue: 1,
+							maxValue: 200,
+						},
+						default: 50,
+						description: 'Max number of results to return (1-200)',
+					},
+				],
+			},
+			{
+				displayName: 'Filters',
+				name: 'webhookEventsFilters',
+				type: 'collection',
+				placeholder: 'Add Filter',
+				displayOptions: {
+					show: {
+						operation: ['webhookEventsFeed'],
+					},
+				},
+				default: {},
+				options: [
+					{
+						displayName: 'Status',
+						name: 'status',
+						type: 'options',
+						options: [
+							{ name: 'Pending', value: 'pending' },
+							{ name: 'Delivered', value: 'delivered' },
+							{ name: 'Failed', value: 'failed' },
+							{ name: 'Dead', value: 'dead' },
+						],
+						default: 'delivered',
+						description: 'Only return deliveries with this status',
+					},
+					{
+						displayName: 'Event Type',
+						name: 'eventType',
+						type: 'options',
+						options: [
+							{ name: 'render.succeeded', value: 'render.succeeded' },
+							{ name: 'render.failed', value: 'render.failed' },
+							{ name: 'upload.succeeded', value: 'upload.succeeded' },
+							{ name: 'video.succeeded', value: 'video.succeeded' },
+							{ name: 'video.failed', value: 'video.failed' },
+							{ name: 'webhook.test', value: 'webhook.test' },
+						],
+						default: 'render.succeeded',
+						description: 'Only return deliveries for this event type',
+					},
+					{
+						displayName: 'Limit',
+						name: 'limit',
+						type: 'number',
+						typeOptions: {
+							minValue: 1,
+							maxValue: 200,
+						},
+						default: 100,
+						description: 'Max number of results to return (1-200)',
+					},
+				],
+			},
 
 			// ============================================
 			// LIST MOCKUPS PARAMETERS
@@ -1105,13 +1313,17 @@ export class SudoMock implements INodeType {
 				if (operation === 'uploadPsd') {
 					const psdFileUrl = this.getNodeParameter('psdFileUrl', i) as string;
 					const psdName = this.getNodeParameter('psdName', i) as string;
+					const uploadIsAsync = this.getNodeParameter('uploadIsAsync', i, false) as boolean;
 
-					const body: Record<string, string> = {
+					const body: Record<string, string | boolean> = {
 						psd_file_url: psdFileUrl,
 					};
 
 					if (psdName) {
 						body.psd_name = psdName;
+					}
+					if (uploadIsAsync) {
+						body.is_async = true;
 					}
 
 					const response = await this.helpers.httpRequestWithAuthentication.call(
@@ -1143,11 +1355,20 @@ export class SudoMock implements INodeType {
 						fit: string;
 						additionalOptions?: {
 							rotate?: number;
+							base64?: string;
+							contentType?: string;
+							sizeWidth?: number;
+							sizeHeight?: number;
+							positionTop?: number;
+							positionLeft?: number;
 							colorHex?: string;
 							colorBlendMode?: string;
 							brightness?: number;
 							contrast?: number;
 							opacity?: number;
+							saturation?: number;
+							vibrance?: number;
+							blur?: number;
 						};
 					}>;
 					const exportOptions = this.getNodeParameter('exportOptions', i, {}) as {
@@ -1171,17 +1392,50 @@ export class SudoMock implements INodeType {
 						// Add additional options if present
 						if (so.additionalOptions) {
 							const opts = so.additionalOptions;
+							const asset = smartObject.asset as Record<string, unknown>;
 
 							// Rotation
 							if (opts.rotate !== undefined && opts.rotate !== 0) {
-								(smartObject.asset as Record<string, unknown>).rotate = opts.rotate;
+								asset.rotate = opts.rotate;
+							}
+
+							// Base64 image source (alternative to URL, takes priority server-side)
+							if (opts.base64) {
+								asset.base64 = opts.base64;
+								if (opts.contentType) {
+									asset.content_type = opts.contentType;
+								}
+							}
+
+							// Custom size override
+							const size: Record<string, number> = {};
+							if (opts.sizeWidth !== undefined && opts.sizeWidth > 0) {
+								size.width = opts.sizeWidth;
+							}
+							if (opts.sizeHeight !== undefined && opts.sizeHeight > 0) {
+								size.height = opts.sizeHeight;
+							}
+							if (Object.keys(size).length > 0) {
+								asset.size = size;
+							}
+
+							// Custom position override (top/left, DynamicMockups compatible)
+							const position: Record<string, number> = {};
+							if (opts.positionTop !== undefined && opts.positionTop !== 0) {
+								position.top = opts.positionTop;
+							}
+							if (opts.positionLeft !== undefined && opts.positionLeft !== 0) {
+								position.left = opts.positionLeft;
+							}
+							if (Object.keys(position).length > 0) {
+								asset.position = position;
 							}
 
 							// Color overlay
 							if (opts.colorHex) {
 								smartObject.color = {
 									hex: opts.colorHex,
-									blending_mode: opts.colorBlendMode || 'multiply',
+									blending_mode: opts.colorBlendMode || 'normal',
 								};
 							}
 
@@ -1195,6 +1449,15 @@ export class SudoMock implements INodeType {
 							}
 							if (opts.opacity !== undefined && opts.opacity !== 100) {
 								adjustments.opacity = opts.opacity;
+							}
+							if (opts.saturation !== undefined && opts.saturation !== 0) {
+								adjustments.saturation = opts.saturation;
+							}
+							if (opts.vibrance !== undefined && opts.vibrance !== 0) {
+								adjustments.vibrance = opts.vibrance;
+							}
+							if (opts.blur !== undefined && opts.blur !== 0) {
+								adjustments.blur = opts.blur;
 							}
 							if (Object.keys(adjustments).length > 0) {
 								smartObject.adjustment_layers = adjustments;
@@ -1442,12 +1705,28 @@ export class SudoMock implements INodeType {
 				// WEBHOOK: EVENTS FEED
 				// ========================================
 				else if (operation === 'webhookEventsFeed') {
+					const filters = this.getNodeParameter('webhookEventsFilters', i, {}) as {
+						status?: string;
+						eventType?: string;
+						limit?: number;
+					};
+					const qs: IDataObject = {};
+					if (filters.status) {
+						qs.status = filters.status;
+					}
+					if (filters.eventType) {
+						qs.event_type = filters.eventType;
+					}
+					if (filters.limit !== undefined) {
+						qs.limit = filters.limit;
+					}
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
 						{
 							method: 'GET',
 							url: 'https://api.sudomock.com/api/v1/webhook-endpoints/events',
+							qs,
 							json: true,
 						},
 					);
@@ -1594,12 +1873,28 @@ export class SudoMock implements INodeType {
 				// ========================================
 				else if (operation === 'webhookListDeliveries') {
 					const webhookId = this.getNodeParameter('webhookId', i) as string;
+					const filters = this.getNodeParameter('webhookDeliveriesFilters', i, {}) as {
+						status?: string;
+						eventType?: string;
+						limit?: number;
+					};
+					const qs: IDataObject = {};
+					if (filters.status) {
+						qs.status = filters.status;
+					}
+					if (filters.eventType) {
+						qs.event_type = filters.eventType;
+					}
+					if (filters.limit !== undefined) {
+						qs.limit = filters.limit;
+					}
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
 						{
 							method: 'GET',
 							url: `https://api.sudomock.com/api/v1/webhook-endpoints/${webhookId}/deliveries`,
+							qs,
 							json: true,
 						},
 					);

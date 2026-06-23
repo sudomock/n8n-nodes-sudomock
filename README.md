@@ -17,11 +17,11 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Delete Mockup**: Delete a specific mockup template
 
 ### Rendering
-- **Render Mockup**: Generate mockups by combining templates with your designs. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `render_uuid` to track with **Get Job**.
+- **Render Mockup**: Generate mockups by combining templates with your designs. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
 - **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Pick a duration valid for the model, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
 
 ### Async Jobs
-- **Get Job**: Get the status and result of an async render, upload, or video job by its `render_uuid`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload). Optionally **Wait for Completion** to poll until the job finishes.
+- **Get Job**: Get the status and result of an async render, upload, or video job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload). Optionally **Wait for Completion** to poll until the job finishes.
 - **List Jobs**: List your async render, upload, and video jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
 
 ### Webhooks
@@ -269,7 +269,7 @@ Deletion confirmation
 
 ### Render Video
 
-Turn a mockup (or an existing image URL) into a short product video. Always asynchronous: returns a `render_uuid` you can track with **Get Job**.
+Turn a mockup (or an existing image URL) into a short product video. Always asynchronous: returns a `job_id` you can track with **Get Job**.
 
 **Parameters:**
 - **Input Mode**: `Render Mockup` (render a mockup with your designs first) or `Animate Image URL` (animate a public image directly)
@@ -286,16 +286,16 @@ Turn a mockup (or an existing image URL) into a short product video. Always asyn
 - **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
 
 **Output:**
-The 202 acknowledgement (`render_uuid`, `kind`, `status`, `status_url`, `estimated_credits`, ...), or the finished job (with `result_url` / `resultUrl`) when Wait for Completion is on.
+The 202 acknowledgement (`job_id`, `kind`, `status`, `status_url`, `estimated_credits`, ...), or the finished job (with `result_url` / `resultUrl`) when Wait for Completion is on.
 
 ---
 
 ### Get Job
 
-Track an asynchronous render, upload, or video job by its `render_uuid`.
+Track an asynchronous render, upload, or video job by its `job_id`.
 
 **Parameters:**
-- **Render UUID** (required): the `render_uuid` from an async render, upload, or video request
+- **Job ID** (required): the `job_id` from an async render, upload, or video request
 - **Wait for Completion**: poll until a terminal status (`succeeded`, `failed`, `cancelled`)
 - **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
 

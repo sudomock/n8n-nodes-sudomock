@@ -8,6 +8,7 @@ import {
 	NodeOperationError,
 	IDataObject,
 	JsonObject,
+	sleep,
 } from 'n8n-workflow';
 
 const TERMINAL_JOB_STATUSES = ['succeeded', 'failed', 'cancelled'];
@@ -43,7 +44,7 @@ async function pollJob(
 			);
 		}
 
-		await new Promise((resolve) => setTimeout(resolve, delayMs));
+		await sleep(delayMs);
 		delayMs = Math.min(delayMs * 1.5, 8000);
 	}
 }

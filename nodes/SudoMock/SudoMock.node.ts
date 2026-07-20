@@ -57,7 +57,7 @@ export class SudoMock implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Generate mockups and product videos for Print-on-Demand automation. Upload PSDs, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
+		description: 'Generate PSD and 2D mockups and product videos for Print-on-Demand automation. Upload PSDs, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
 		defaults: {
 			name: 'SudoMock',
 		},
@@ -80,6 +80,43 @@ export class SudoMock implements INodeType {
 				type: 'options',
 				noDataExpression: true,
 				options: [
+					{
+						name: '2D: Create Mockup',
+						value: 'create2DMockup',
+						description:
+							'Create a 2D mockup asynchronously. Returns a job immediately; use 2D: Get Mockup until status is ready before rendering.',
+						action: 'Create a 2D mockup',
+					},
+					{
+						name: '2D: Get Mockup',
+						value: 'get2DMockup',
+						description: 'Get the status and print areas of a 2D mockup',
+						action: 'Get a 2D mockup',
+					},
+					{
+						name: '2D: List Mockups',
+						value: 'list2DMockups',
+						description: 'List your 2D mockups',
+						action: 'List 2D mockups',
+					},
+					{
+						name: '2D: Set Print Areas',
+						value: 'set2DPrintAreas',
+						description: 'Define print area quads for a 2D mockup',
+						action: 'Set 2D print areas',
+					},
+					{
+						name: '2D: Render Mockup',
+						value: 'render2DMockup',
+						description: 'Render artwork on a 2D mockup for 5 credits',
+						action: 'Render a 2D mockup',
+					},
+					{
+						name: '2D: Delete Mockup',
+						value: 'delete2DMockup',
+						description: 'Delete a 2D mockup',
+						action: 'Delete a 2D mockup',
+					},
 					{
 						name: 'Delete Mockup',
 						value: 'deleteMockup',
@@ -208,6 +245,494 @@ export class SudoMock implements INodeType {
 					},
 				],
 				default: 'render',
+			},
+
+			// ============================================
+			// 2D MOCKUP PARAMETERS
+			// ============================================
+			{
+				displayName: 'Source Type',
+				name: 'twoDSourceMode',
+				type: 'options',
+				displayOptions: {
+					show: {
+						operation: ['create2DMockup'],
+					},
+				},
+				options: [
+					{
+						name: 'Image URL',
+						value: 'url',
+						description: 'Public image URL for the new 2D mockup',
+					},
+					{
+						name: 'Base64 Image',
+						value: 'base64',
+						description: 'Base64 image data for the new 2D mockup',
+					},
+				],
+				default: 'url',
+				description: 'Image source for the new 2D mockup',
+			},
+			{
+				displayName: 'Source URL',
+				name: 'twoDSourceUrl',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['create2DMockup'],
+						twoDSourceMode: ['url'],
+					},
+				},
+				default: '',
+				placeholder: 'https://cdn.example.com/product.png',
+				description: 'Public image URL for the new 2D mockup',
+			},
+			{
+				displayName: 'Source Base64',
+				name: 'twoDSourceBase64',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['create2DMockup'],
+						twoDSourceMode: ['base64'],
+					},
+				},
+				default: '',
+				description: 'Base64 image data for the new 2D mockup',
+			},
+			{
+				displayName: 'Name',
+				name: 'twoDName',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['create2DMockup'],
+					},
+				},
+				default: '',
+				placeholder: 'T-Shirt Front',
+				description: 'Optional human-readable name for the new 2D mockup',
+			},
+			{
+				displayName: 'Mockup UUID',
+				name: 'twoDMockupUuid',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: [
+							'get2DMockup',
+							'set2DPrintAreas',
+							'render2DMockup',
+							'delete2DMockup',
+						],
+					},
+				},
+				default: '',
+				placeholder: 'c315f78f-d2c7-4541-b240-a9372842de94',
+				description: 'UUID of the 2D mockup to get, set print areas for, render, or delete',
+			},
+			{
+				displayName: 'Print Areas',
+				name: 'twoDSetPrintAreas',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['set2DPrintAreas'],
+					},
+				},
+				default: {},
+				placeholder: 'Add Print Area',
+				description: 'Four coordinate pairs that define each print area quad',
+				options: [
+					{
+						name: 'items',
+						displayName: 'Print Area',
+						values: [
+							{
+								displayName: 'Point 1 X',
+								name: 'point1X',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'X coordinate of point 1',
+							},
+							{
+								displayName: 'Point 1 Y',
+								name: 'point1Y',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'Y coordinate of point 1',
+							},
+							{
+								displayName: 'Point 2 X',
+								name: 'point2X',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'X coordinate of point 2',
+							},
+							{
+								displayName: 'Point 2 Y',
+								name: 'point2Y',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'Y coordinate of point 2',
+							},
+							{
+								displayName: 'Point 3 X',
+								name: 'point3X',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'X coordinate of point 3',
+							},
+							{
+								displayName: 'Point 3 Y',
+								name: 'point3Y',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'Y coordinate of point 3',
+							},
+							{
+								displayName: 'Point 4 X',
+								name: 'point4X',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'X coordinate of point 4',
+							},
+							{
+								displayName: 'Point 4 Y',
+								name: 'point4Y',
+								type: 'number',
+								required: true,
+								default: 0,
+								description: 'Y coordinate of point 4',
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'Print Areas',
+				name: 'twoDRenderPrintAreas',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['render2DMockup'],
+					},
+				},
+				default: {},
+				placeholder: 'Add Print Area',
+				description: 'Artwork and options for each saved print area',
+				options: [
+					{
+						name: 'items',
+						displayName: 'Print Area',
+						values: [
+							{
+								displayName: 'Print Area UUID',
+								name: 'uuid',
+								type: 'string',
+								required: true,
+								default: '',
+								description: 'UUID returned by 2D: Get Mockup when status is ready',
+							},
+							{
+								displayName: 'Artwork Type',
+								name: 'artworkSource',
+								type: 'options',
+								options: [
+									{
+										name: 'Artwork URL',
+										value: 'url',
+										description: 'Public artwork URL for this print area',
+									},
+									{
+										name: 'Base64 Artwork',
+										value: 'base64',
+										description: 'Base64 artwork data for this print area',
+									},
+								],
+								default: 'url',
+								description: 'Artwork source for this print area',
+							},
+							{
+								displayName: 'Artwork URL',
+								name: 'artworkUrl',
+								type: 'string',
+								required: true,
+								displayOptions: {
+									show: {
+										artworkSource: ['url'],
+									},
+								},
+								default: '',
+								placeholder: 'https://cdn.example.com/design.png',
+								description: 'Public artwork URL for this print area',
+							},
+							{
+								displayName: 'Base64 Artwork',
+								name: 'base64',
+								type: 'string',
+								required: true,
+								displayOptions: {
+									show: {
+										artworkSource: ['base64'],
+									},
+								},
+								default: '',
+								description: 'Base64 artwork data for this print area',
+							},
+							{
+								displayName: 'Color',
+								name: 'color',
+								type: 'string',
+								default: '',
+								placeholder: '#FF0000',
+								description: 'Optional hex color fill or overlay',
+							},
+							{
+								displayName: 'Adjustments',
+								name: 'adjustments',
+								type: 'collection',
+								placeholder: 'Add Adjustment',
+								default: {},
+								description: 'Artwork appearance settings for this print area',
+								options: [
+									{
+										displayName: 'Brightness',
+										name: 'brightness',
+										type: 'number',
+										typeOptions: { minValue: -150, maxValue: 150 },
+										default: 0,
+										description: 'Brightness adjustment from -150 to 150',
+									},
+									{
+										displayName: 'Contrast',
+										name: 'contrast',
+										type: 'number',
+										typeOptions: { minValue: -100, maxValue: 100 },
+										default: 0,
+										description: 'Contrast adjustment from -100 to 100',
+									},
+									{
+										displayName: 'Opacity',
+										name: 'opacity',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 100 },
+										default: 100,
+										description: 'Artwork opacity from 0 to 100',
+									},
+									{
+										displayName: 'Saturation',
+										name: 'saturation',
+										type: 'number',
+										typeOptions: { minValue: -100, maxValue: 100 },
+										default: 0,
+										description: 'Saturation adjustment from -100 to 100',
+									},
+									{
+										displayName: 'Vibrance',
+										name: 'vibrance',
+										type: 'number',
+										typeOptions: { minValue: -100, maxValue: 100 },
+										default: 0,
+										description: 'Vibrance adjustment from -100 to 100',
+									},
+									{
+										displayName: 'Blur',
+										name: 'blur',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 100 },
+										default: 0,
+										description: 'Gaussian blur amount from 0 to 100',
+									},
+									{
+										displayName: 'Blend Mode',
+										name: 'blend_mode',
+										type: 'options',
+										options: [
+											{ name: 'Multiply', value: 'multiply' },
+											{ name: 'Normal', value: 'normal' },
+										],
+										default: 'multiply',
+										description: 'Artwork blend mode for the product surface',
+									},
+									{
+										displayName: 'Warp Strength',
+										name: 'warp_strength',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 2 },
+										default: 1.5,
+										description: 'Surface warp strength from 0 to 2',
+									},
+									{
+										displayName: 'Edge Expand',
+										name: 'edge_expand',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 50 },
+										default: 0,
+										description: 'Artwork edge expansion from 0 to 50',
+									},
+									{
+										displayName: 'Texture Strength',
+										name: 'texture_strength',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 100 },
+										default: 0,
+										description: 'Product texture strength from 0 to 100',
+									},
+								],
+							},
+							{
+								displayName: 'Placement',
+								name: 'placement',
+								type: 'collection',
+								placeholder: 'Add Placement Option',
+								default: {},
+								description: 'Artwork position and size settings for this print area',
+								options: [
+									{
+										displayName: 'Position',
+										name: 'position',
+										type: 'options',
+										options: [
+											{ name: 'Top Left', value: 'top_left' },
+											{ name: 'Top Center', value: 'top_center' },
+											{ name: 'Top Right', value: 'top_right' },
+											{ name: 'Center Left', value: 'center_left' },
+											{ name: 'Center', value: 'center' },
+											{ name: 'Center Right', value: 'center_right' },
+											{ name: 'Bottom Left', value: 'bottom_left' },
+											{ name: 'Bottom Center', value: 'bottom_center' },
+											{ name: 'Bottom Right', value: 'bottom_right' },
+										],
+										default: 'center',
+										description: 'Predefined artwork position in the print area',
+									},
+									{
+										displayName: 'Coverage',
+										name: 'coverage',
+										type: 'number',
+										typeOptions: { minValue: 10, maxValue: 100 },
+										default: 70,
+										description: 'Percentage of the print area covered by the artwork',
+									},
+									{
+										displayName: 'Fit',
+										name: 'fit',
+										type: 'options',
+										options: [
+											{ name: 'Fill', value: 'fill' },
+											{ name: 'Contain', value: 'contain' },
+											{ name: 'Cover', value: 'cover' },
+										],
+										default: 'contain',
+										description: 'How the artwork fits within the print area',
+									},
+									{
+										displayName: 'Scale',
+										name: 'scale',
+										type: 'number',
+										default: 1,
+										description: 'Artwork scale multiplier that overrides coverage',
+									},
+									{
+										displayName: 'Rotation',
+										name: 'rotation',
+										type: 'number',
+										default: 0,
+										description: 'Artwork rotation in degrees',
+									},
+									{
+										displayName: 'Offset X',
+										name: 'offset_x',
+										type: 'number',
+										default: 0,
+										description: 'Horizontal artwork offset in pixels',
+									},
+									{
+										displayName: 'Offset Y',
+										name: 'offset_y',
+										type: 'number',
+										default: 0,
+										description: 'Vertical artwork offset in pixels',
+									},
+								],
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'Export Options',
+				name: 'twoDExportOptions',
+				type: 'collection',
+				placeholder: 'Add Export Option',
+				displayOptions: {
+					show: {
+						operation: ['render2DMockup'],
+					},
+				},
+				default: {},
+				description: 'Output image settings for the rendered 2D mockup',
+				options: [
+					{
+						displayName: 'Image Format',
+						name: 'image_format',
+						type: 'options',
+						options: [
+							{ name: 'PNG', value: 'png' },
+							{ name: 'JPG', value: 'jpg' },
+						],
+						default: 'png',
+						description: 'File format of the rendered image',
+					},
+					{
+						displayName: 'Image Size',
+						name: 'image_size',
+						type: 'options',
+						options: [
+							{ name: '1024', value: 1024 },
+							{ name: '2048', value: 2048 },
+							{ name: '4096', value: 4096 },
+						],
+						default: 2048,
+						description: 'Width of the rendered image in pixels',
+					},
+					{
+						displayName: 'Quality',
+						name: 'quality',
+						type: 'number',
+						typeOptions: { minValue: 1, maxValue: 100 },
+						default: 90,
+						description: 'JPG compression quality from 1 to 100',
+					},
+					{
+						displayName: 'DPI',
+						name: 'dpi',
+						type: 'number',
+						typeOptions: { minValue: 72, maxValue: 2400 },
+						default: 300,
+						description: 'Print resolution tag from 72 to 2400 DPI',
+					},
+				],
 			},
 
 			// ============================================
@@ -826,7 +1351,7 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: '9d4e2b51-0c7a-4f8e-bb1c-2a6f9e3d8c10',
-				description: 'The job_id returned by an async render, upload, or video request',
+				description: 'The job_id returned by an async render, upload, video, or 2D mockup request',
 			},
 			{
 				displayName: 'Wait for Completion',
@@ -1341,6 +1866,185 @@ export class SudoMock implements INodeType {
 					// Response: { success: true, data: { uuid, name, thumbnail, smart_objects, ... } }
 					returnData.push({
 						json: response,
+						pairedItem: { item: i },
+					});
+				}
+
+				// ========================================
+				// 2D: CREATE MOCKUP
+				// ========================================
+				else if (operation === 'create2DMockup') {
+					const sourceMode = this.getNodeParameter('twoDSourceMode', i) as string;
+					const name = this.getNodeParameter('twoDName', i, '') as string;
+					const body: Record<string, string> = {};
+
+					if (sourceMode === 'base64') {
+						body.source_base64 = this.getNodeParameter('twoDSourceBase64', i) as string;
+					} else {
+						body.source_url = this.getNodeParameter('twoDSourceUrl', i) as string;
+					}
+					if (name) {
+						body.name = name;
+					}
+
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
+							body,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// 2D: GET MOCKUP
+				// ========================================
+				else if (operation === 'get2DMockup') {
+					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockup/${mockupUuid}`,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// 2D: LIST MOCKUPS
+				// ========================================
+				else if (operation === 'list2DMockups') {
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// 2D: SET PRINT AREAS
+				// ========================================
+				else if (operation === 'set2DPrintAreas') {
+					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
+					const printAreas = this.getNodeParameter('twoDSetPrintAreas.items', i, []) as Array<{
+						point1X: number;
+						point1Y: number;
+						point2X: number;
+						point2Y: number;
+						point3X: number;
+						point3Y: number;
+						point4X: number;
+						point4Y: number;
+					}>;
+					const body = {
+						print_areas: printAreas.map((area) => ({
+							points: [
+								[area.point1X, area.point1Y],
+								[area.point2X, area.point2Y],
+								[area.point3X, area.point3Y],
+								[area.point4X, area.point4Y],
+							],
+						})),
+					};
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'PUT',
+							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockup/${mockupUuid}/print-areas`,
+							body,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// 2D: RENDER MOCKUP
+				// ========================================
+				else if (operation === 'render2DMockup') {
+					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
+					const printAreasData = this.getNodeParameter(
+						'twoDRenderPrintAreas.items',
+						i,
+						[],
+					) as Array<{
+						uuid: string;
+						artworkSource: string;
+						artworkUrl?: string;
+						base64?: string;
+						color?: string;
+						adjustments?: IDataObject;
+						placement?: IDataObject;
+					}>;
+					const printAreas = printAreasData.map((area) => {
+						const printArea: Record<string, unknown> = { uuid: area.uuid };
+						if (area.artworkSource === 'base64') {
+							printArea.base64 = area.base64;
+						} else {
+							printArea.artwork_url = area.artworkUrl;
+						}
+						if (area.color) {
+							printArea.color = area.color;
+						}
+						if (area.adjustments && Object.keys(area.adjustments).length > 0) {
+							printArea.adjustments = area.adjustments;
+						}
+						if (area.placement && Object.keys(area.placement).length > 0) {
+							printArea.placement = area.placement;
+						}
+						return printArea;
+					});
+					const exportOptions = this.getNodeParameter('twoDExportOptions', i, {}) as IDataObject;
+					const body: Record<string, unknown> = {
+						mockup_uuid: mockupUuid,
+						print_areas: printAreas,
+					};
+					if (Object.keys(exportOptions).length > 0) {
+						body.export_options = exportOptions;
+					}
+
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockup/render',
+							body,
+							json: true,
+						},
+					);
+					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+				}
+
+				// ========================================
+				// 2D: DELETE MOCKUP
+				// ========================================
+				else if (operation === 'delete2DMockup') {
+					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
+					await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
+						method: 'DELETE',
+						url: `https://api.sudomock.com/api/v1/sudoai/2d-mockup/${mockupUuid}`,
+					});
+					returnData.push({
+						json: {
+							success: true,
+							message: '2D mockup deleted successfully',
+							mockupUuid,
+							statusCode: 204,
+						} as IDataObject,
 						pairedItem: { item: i },
 					});
 				}

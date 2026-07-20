@@ -16,12 +16,20 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Update Mockup**: Update the name of a mockup template
 - **Delete Mockup**: Delete a specific mockup template
 
+### 2D Mockups
+- **2D: Create Mockup**: Create a reusable 2D mockup from an image
+- **2D: Get Mockup**: Check preparation status and get ready print areas
+- **2D: List Mockups**: List your 2D mockups
+- **2D: Set Print Areas**: Define print areas with four-point quads
+- **2D: Render Mockup**: Render artwork into ready print areas for 5 credits
+- **2D: Delete Mockup**: Delete a 2D mockup
+
 ### Rendering
 - **Render Mockup**: Generate mockups by combining templates with your designs. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
 - **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Pick a duration valid for the model, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
 
 ### Async Jobs
-- **Get Job**: Get the status and result of an async render, upload, or video job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload). Optionally **Wait for Completion** to poll until the job finishes.
+- **Get Job**: Get the status and result of an async render, upload, video, or 2D mockup job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload and 2D creation). Optionally **Wait for Completion** to poll until the job finishes.
 - **List Jobs**: List your async render, upload, and video jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
 
 ### Webhooks
@@ -267,6 +275,21 @@ Deletion confirmation
 
 ---
 
+### 2D Mockup Operations
+
+Create, prepare, render, and manage reusable mockups from product images without a PSD.
+
+1. **2D: Create Mockup** accepts a public `source_url` or `source_base64`, plus an optional name. Creation is asynchronous and returns the 202 response with `mockup_uuid`, `status_url`, and job details unchanged. Use the job ID with **Get Job** when needed.
+2. **2D: Get Mockup** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`; the ready response includes each print area's UUID and points.
+3. **2D: List Mockups** returns your 2D mockups.
+4. **2D: Set Print Areas** accepts one or more print areas. Each print area is a quad with four `[x, y]` coordinate pairs.
+5. **2D: Render Mockup** accepts the mockup UUID and one or more ready print area UUIDs. Each print area includes either an artwork URL or Base64 artwork, with optional color, adjustments, and placement. Export options support PNG or JPG at 1024, 2048, or 4096 pixels, plus quality and DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
+6. **2D: Delete Mockup** deletes the selected 2D mockup.
+
+Create must reach `ready` through **2D: Get Mockup** before **2D: Render Mockup**.
+
+---
+
 ### Render Video
 
 Turn a mockup (or an existing image URL) into a short product video. Always asynchronous: returns a `job_id` you can track with **Get Job**.
@@ -292,10 +315,10 @@ The 202 acknowledgement (`job_id`, `kind`, `status`, `status_url`, `estimated_cr
 
 ### Get Job
 
-Track an asynchronous render, upload, or video job by its `job_id`.
+Track an asynchronous render, upload, video, or 2D mockup job by its `job_id`.
 
 **Parameters:**
-- **Job ID** (required): the `job_id` from an async render, upload, or video request
+- **Job ID** (required): the `job_id` from an async render, upload, video, or 2D mockup request
 - **Wait for Completion**: poll until a terminal status (`succeeded`, `failed`, `cancelled`)
 - **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
 

@@ -1910,7 +1910,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'GET',
-							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockup/${mockupUuid}`,
+							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}`,
 							json: true,
 						},
 					);
@@ -1963,7 +1963,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'PUT',
-							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockup/${mockupUuid}/print-areas`,
+							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}/print-areas`,
 							body,
 							json: true,
 						},
@@ -2009,7 +2009,6 @@ export class SudoMock implements INodeType {
 					});
 					const exportOptions = this.getNodeParameter('twoDExportOptions', i, {}) as IDataObject;
 					const body: Record<string, unknown> = {
-						mockup_uuid: mockupUuid,
 						print_areas: printAreas,
 					};
 					if (Object.keys(exportOptions).length > 0) {
@@ -2021,7 +2020,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'POST',
-							url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockup/render',
+							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}/render`,
 							body,
 							json: true,
 						},
@@ -2036,7 +2035,7 @@ export class SudoMock implements INodeType {
 					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
 					await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
 						method: 'DELETE',
-						url: `https://api.sudomock.com/api/v1/sudoai/2d-mockup/${mockupUuid}`,
+						url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}`,
 					});
 					returnData.push({
 						json: {

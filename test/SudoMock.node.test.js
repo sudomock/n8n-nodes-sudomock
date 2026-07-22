@@ -1,7 +1,52 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 
-const { SudoMock } = require('../dist/nodes/SudoMock/SudoMock.node.js');
+const NODE_DIST_PATH = path.join(__dirname, '..', 'dist', 'nodes', 'SudoMock', 'SudoMock.node.js');
+const { SudoMock } = require(NODE_DIST_PATH);
+
+// ---------------------------------------------------------------------------
+// BACKEND CONTRACT (source of truth for this suite)
+//
+// These paths are the api.sudomock.com public surface, verified against
+// mockup-generator app/main.py (public_router prefix /api/v1/sudoai) and
+// app/api/routes/sudoai_2d.py, plus live probes. They are declared here
+// independently of the node so the suite fails when the node drifts away
+// from the backend instead of agreeing with whatever the node happens to send.
+//
+// The singular forms (/2d-mockup, /2d-mockup/{id}/...) are mounted only on the
+// internal router (/api/v1/internal, include_in_schema=False). On the public
+// surface they are retired paths that return 404: there is no alias and no
+// redirect, so the node must never emit them.
+// ---------------------------------------------------------------------------
+const API_BASE = 'https://api.sudomock.com/api/v1';
+const PUBLIC_2D_BASE = `${API_BASE}/sudoai/2d-mockups`;
+
+const BACKEND_CONTRACT = {
+	create2DMockup: { method: 'POST', url: () => PUBLIC_2D_BASE },
+	list2DMockups: { method: 'GET', url: () => PUBLIC_2D_BASE },
+	get2DMockup: { method: 'GET', url: (id) => `${PUBLIC_2D_BASE}/${id}` },
+	delete2DMockup: { method: 'DELETE', url: (id) => `${PUBLIC_2D_BASE}/${id}` },
+	set2DPrintAreas: { method: 'PUT', url: (id) => `${PUBLIC_2D_BASE}/${id}/print-areas` },
+	// The mockup id travels in the PATH. The body carries print_areas and
+	// export_options only; mockup_uuid in the body is not part of the contract.
+	render2DMockup: { method: 'POST', url: (id) => `${PUBLIC_2D_BASE}/${id}/render` },
+};
+
+// Path fragments that must never appear in a URL the node builds.
+const RETIRED_OR_INTERNAL_FRAGMENTS = [
+	'/api/v1/sudoai/2d-mockup/', // retired singular path -> 404
+	'/api/v1/sudoai/2d-mockup?', // retired singular collection -> 404
+	"/api/v1/sudoai/2d-mockup'", // retired singular collection literal -> 404
+	'/api/v1/sudoai/2d-mockup`', // retired singular collection literal -> 404
+	'/api/v1/internal/', // internal router, not reachable with a customer key
+	'/auto-segment',
+	'/presign-masks',
+	'/mask/commit',
+];
+
+const RENDER_BODY_FORBIDDEN_KEYS = ['mockup_uuid', 'mockupUuid', 'uuid'];
 
 const existingOperations = [
 	'deleteMockup',
@@ -27,14 +72,7 @@ const existingOperations = [
 	'webhookUpdate',
 ];
 
-const twoDOperations = [
-	'create2DMockup',
-	'get2DMockup',
-	'list2DMockups',
-	'set2DPrintAreas',
-	'render2DMockup',
-	'delete2DMockup',
-];
+const twoDOperations = Object.keys(BACKEND_CONTRACT);
 
 test('2D operations are well formed without removing existing operations', () => {
 	const properties = new SudoMock().description.properties;
@@ -49,216 +87,300 @@ test('2D operations are well formed without removing existing operations', () =>
 	const propertyNames = properties.map((property) => property.name);
 	assert.equal(new Set(propertyNames).size, propertyNames.length);
 	for (const property of properties.filter((item) => item.name.startsWith('twoD'))) {
-		assert.ok(property.displayOptions?.show?.operation, `${property.name} has no operation display option`);
+		assert.ok(
+			property.displayOptions?.show?.operation,
+			`${property.name} has no operation display option`,
+		);
 	}
 });
 
-test('2D operations route to the expected API requests', async (t) => {
-	const cases = [
-		{
-			operation: 'create2DMockup',
-			parameters: {
-				twoDSourceMode: 'url',
-				twoDSourceUrl: 'https://cdn.example.com/product.png',
-				twoDName: 'T-Shirt Front',
+const MOCKUP_ID = 'mockup-1';
+
+// Each case declares only the inputs and the request payload. Method and URL
+// come from BACKEND_CONTRACT above, so a node that starts calling a different
+// path fails here.
+const cases = [
+	{
+		operation: 'create2DMockup',
+		parameters: {
+			twoDSourceMode: 'url',
+			twoDSourceUrl: 'https://cdn.example.com/product.png',
+			twoDName: 'T-Shirt Front',
+		},
+		expected: {
+			body: {
+				source_url: 'https://cdn.example.com/product.png',
+				name: 'T-Shirt Front',
 			},
-			expected: {
-				method: 'POST',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
-				body: {
-					source_url: 'https://cdn.example.com/product.png',
-					name: 'T-Shirt Front',
+			json: true,
+		},
+	},
+	{
+		name: 'create2DMockup with Base64',
+		operation: 'create2DMockup',
+		parameters: {
+			twoDSourceMode: 'base64',
+			twoDSourceBase64: 'aW1hZ2U=',
+			twoDName: '',
+		},
+		expected: {
+			body: { source_base64: 'aW1hZ2U=' },
+			json: true,
+		},
+	},
+	{
+		operation: 'get2DMockup',
+		parameters: { twoDMockupUuid: MOCKUP_ID },
+		pathId: MOCKUP_ID,
+		expected: { json: true },
+	},
+	{
+		operation: 'list2DMockups',
+		parameters: {},
+		expected: { json: true },
+	},
+	{
+		operation: 'set2DPrintAreas',
+		parameters: {
+			twoDMockupUuid: MOCKUP_ID,
+			'twoDSetPrintAreas.items': [
+				{
+					point1X: 10,
+					point1Y: 20,
+					point2X: 110,
+					point2Y: 20,
+					point3X: 110,
+					point3Y: 120,
+					point4X: 10,
+					point4Y: 120,
 				},
-				json: true,
-			},
+			],
 		},
-		{
-			name: 'create2DMockup with Base64',
-			operation: 'create2DMockup',
-			parameters: {
-				twoDSourceMode: 'base64',
-				twoDSourceBase64: 'aW1hZ2U=',
-				twoDName: '',
-			},
-			expected: {
-				method: 'POST',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
-				body: { source_base64: 'aW1hZ2U=' },
-				json: true,
-			},
-		},
-		{
-			operation: 'get2DMockup',
-			parameters: { twoDMockupUuid: 'mockup-1' },
-			expected: {
-				method: 'GET',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockup/mockup-1',
-				json: true,
-			},
-		},
-		{
-			operation: 'list2DMockups',
-			parameters: {},
-			expected: {
-				method: 'GET',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
-				json: true,
-			},
-		},
-		{
-			operation: 'set2DPrintAreas',
-			parameters: {
-				twoDMockupUuid: 'mockup-1',
-				'twoDSetPrintAreas.items': [
+		pathId: MOCKUP_ID,
+		expected: {
+			body: {
+				print_areas: [
 					{
-						point1X: 10,
-						point1Y: 20,
-						point2X: 110,
-						point2Y: 20,
-						point3X: 110,
-						point3Y: 120,
-						point4X: 10,
-						point4Y: 120,
+						points: [
+							[10, 20],
+							[110, 20],
+							[110, 120],
+							[10, 120],
+						],
 					},
 				],
 			},
-			expected: {
-				method: 'PUT',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockup/mockup-1/print-areas',
-				body: {
-					print_areas: [
-						{
-							points: [
-								[10, 20],
-								[110, 20],
-								[110, 120],
-								[10, 120],
-							],
-						},
-					],
+			json: true,
+		},
+	},
+	{
+		operation: 'render2DMockup',
+		parameters: {
+			twoDMockupUuid: MOCKUP_ID,
+			'twoDRenderPrintAreas.items': [
+				{
+					uuid: 'print-area-1',
+					artworkSource: 'base64',
+					base64: 'aW1hZ2U=',
+					color: '#FF0000',
+					adjustments: { brightness: 5, blend_mode: 'multiply' },
+					placement: { position: 'center', coverage: 70 },
 				},
-				json: true,
+			],
+			twoDExportOptions: {
+				image_format: 'png',
+				image_size: 2048,
+				quality: 90,
+				dpi: 300,
 			},
 		},
-		{
-			operation: 'render2DMockup',
-			parameters: {
-				twoDMockupUuid: 'mockup-1',
-				'twoDRenderPrintAreas.items': [
+		pathId: MOCKUP_ID,
+		expected: {
+			body: {
+				print_areas: [
 					{
 						uuid: 'print-area-1',
-						artworkSource: 'base64',
 						base64: 'aW1hZ2U=',
 						color: '#FF0000',
 						adjustments: { brightness: 5, blend_mode: 'multiply' },
 						placement: { position: 'center', coverage: 70 },
 					},
 				],
-				twoDExportOptions: {
+				export_options: {
 					image_format: 'png',
 					image_size: 2048,
 					quality: 90,
 					dpi: 300,
 				},
 			},
-			expected: {
-				method: 'POST',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockup/render',
-				body: {
-					mockup_uuid: 'mockup-1',
-					print_areas: [
-						{
-							uuid: 'print-area-1',
-							base64: 'aW1hZ2U=',
-							color: '#FF0000',
-							adjustments: { brightness: 5, blend_mode: 'multiply' },
-							placement: { position: 'center', coverage: 70 },
-						},
-					],
-					export_options: {
-						image_format: 'png',
-						image_size: 2048,
-						quality: 90,
-						dpi: 300,
-					},
-				},
-				json: true,
-			},
+			json: true,
 		},
-		{
-			name: 'render2DMockup with artwork URL',
-			operation: 'render2DMockup',
-			parameters: {
-				twoDMockupUuid: 'mockup-1',
-				'twoDRenderPrintAreas.items': [
+	},
+	{
+		name: 'render2DMockup with artwork URL',
+		operation: 'render2DMockup',
+		parameters: {
+			twoDMockupUuid: MOCKUP_ID,
+			'twoDRenderPrintAreas.items': [
+				{
+					uuid: 'print-area-1',
+					artworkSource: 'url',
+					artworkUrl: 'https://cdn.example.com/design.png',
+				},
+			],
+			twoDExportOptions: {},
+		},
+		pathId: MOCKUP_ID,
+		expected: {
+			body: {
+				print_areas: [
 					{
 						uuid: 'print-area-1',
-						artworkSource: 'url',
-						artworkUrl: 'https://cdn.example.com/design.png',
+						artwork_url: 'https://cdn.example.com/design.png',
 					},
 				],
-				twoDExportOptions: {},
 			},
-			expected: {
-				method: 'POST',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockup/render',
-				body: {
-					mockup_uuid: 'mockup-1',
-					print_areas: [
-						{
-							uuid: 'print-area-1',
-							artwork_url: 'https://cdn.example.com/design.png',
-						},
-					],
-				},
-				json: true,
-			},
+			json: true,
 		},
-		{
-			operation: 'delete2DMockup',
-			parameters: { twoDMockupUuid: 'mockup-1' },
-			expected: {
-				method: 'DELETE',
-				url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockup/mockup-1',
-			},
-		},
-	];
+	},
+	{
+		operation: 'delete2DMockup',
+		parameters: { twoDMockupUuid: MOCKUP_ID },
+		pathId: MOCKUP_ID,
+		expected: {},
+	},
+];
 
+function runOperation(testCase) {
+	const calls = [];
+	const response = { operation: testCase.operation };
+	const context = {
+		getInputData: () => [{ json: {} }],
+		getNodeParameter: (name, _index, fallback) => {
+			if (name === 'operation') return testCase.operation;
+			return Object.prototype.hasOwnProperty.call(testCase.parameters, name)
+				? testCase.parameters[name]
+				: fallback;
+		},
+		helpers: {
+			httpRequestWithAuthentication: async (credential, options) => {
+				calls.push({ credential, options });
+				return response;
+			},
+		},
+		continueOnFail: () => false,
+		getNode: () => ({}),
+	};
+
+	return new SudoMock()
+		.execute.call(context)
+		.then((output) => ({ calls, output, response }));
+}
+
+test('2D operations call the documented backend paths', async (t) => {
 	for (const testCase of cases) {
 		await t.test(testCase.name ?? testCase.operation, async () => {
-			const calls = [];
-			const response = { operation: testCase.operation };
-			const context = {
-				getInputData: () => [{ json: {} }],
-				getNodeParameter: (name, _index, fallback) => {
-					if (name === 'operation') return testCase.operation;
-					return Object.prototype.hasOwnProperty.call(testCase.parameters, name)
-						? testCase.parameters[name]
-						: fallback;
-				},
-				helpers: {
-					httpRequestWithAuthentication: async (_credential, options) => {
-						calls.push({ credential: _credential, options });
-						return response;
+			const contract = BACKEND_CONTRACT[testCase.operation];
+			assert.ok(contract, `no backend contract declared for ${testCase.operation}`);
+
+			const { calls, output, response } = await runOperation(testCase);
+
+			assert.deepEqual(calls, [
+				{
+					credential: 'sudoMockApi',
+					options: {
+						method: contract.method,
+						url: contract.url(testCase.pathId),
+						...testCase.expected,
 					},
 				},
-				continueOnFail: () => false,
-				getNode: () => ({}),
-			};
+			]);
 
-			const output = await new SudoMock().execute.call(context);
-
-			assert.deepEqual(calls, [{ credential: 'sudoMockApi', options: testCase.expected }]);
 			if (testCase.operation !== 'delete2DMockup') {
 				assert.strictEqual(output[0][0].json, response);
 			} else {
 				assert.deepEqual(output[0][0].json, {
 					success: true,
 					message: '2D mockup deleted successfully',
-					mockupUuid: 'mockup-1',
+					mockupUuid: MOCKUP_ID,
 					statusCode: 204,
 				});
 			}
 		});
+	}
+});
+
+test('every 2D operation targets the plural collection, never a retired path', async (t) => {
+	for (const testCase of cases) {
+		await t.test(testCase.name ?? testCase.operation, async () => {
+			const { calls } = await runOperation(testCase);
+			const url = calls[0].options.url;
+
+			assert.ok(
+				url.startsWith(`${PUBLIC_2D_BASE}/`) || url === PUBLIC_2D_BASE,
+				`${testCase.operation} must call ${PUBLIC_2D_BASE}, got ${url}`,
+			);
+			for (const fragment of RETIRED_OR_INTERNAL_FRAGMENTS) {
+				assert.ok(
+					!url.includes(fragment),
+					`${testCase.operation} calls retired or internal path fragment ${fragment}: ${url}`,
+				);
+			}
+			if (testCase.pathId) {
+				assert.ok(
+					url.includes(`/${testCase.pathId}`),
+					`${testCase.operation} must carry the mockup id in the path: ${url}`,
+				);
+			}
+		});
+	}
+});
+
+test('render sends the mockup id in the path only, never in the body', async () => {
+	const renderCases = cases.filter((testCase) => testCase.operation === 'render2DMockup');
+	assert.ok(renderCases.length > 0);
+
+	for (const testCase of renderCases) {
+		const { calls } = await runOperation(testCase);
+		const { url, body } = calls[0].options;
+
+		assert.equal(url, `${PUBLIC_2D_BASE}/${MOCKUP_ID}/render`);
+		for (const key of RENDER_BODY_FORBIDDEN_KEYS) {
+			assert.ok(
+				!Object.prototype.hasOwnProperty.call(body, key),
+				`render body must not carry ${key}; the id belongs in the path`,
+			);
+		}
+		assert.deepEqual(
+			Object.keys(body).sort(),
+			Object.keys(testCase.expected.body).sort(),
+			'render body may carry print_areas and export_options only',
+		);
+	}
+});
+
+test('the built node contains no retired or internal API paths', () => {
+	const source = fs.readFileSync(NODE_DIST_PATH, 'utf8');
+
+	for (const fragment of RETIRED_OR_INTERNAL_FRAGMENTS) {
+		assert.ok(
+			!source.includes(fragment),
+			`built node still references retired or internal path fragment ${fragment}`,
+		);
+	}
+
+	const sudoaiUrls = [...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/sudoai[^'"`\s)]*/g)].map(
+		(match) => match[0],
+	);
+	assert.ok(sudoaiUrls.length > 0, 'expected the node to build 2D mockup URLs');
+
+	const allowedShapes = new Set([
+		PUBLIC_2D_BASE,
+		`${PUBLIC_2D_BASE}/\${mockupUuid}`,
+		`${PUBLIC_2D_BASE}/\${mockupUuid}/print-areas`,
+		`${PUBLIC_2D_BASE}/\${mockupUuid}/render`,
+	]);
+	for (const url of sudoaiUrls) {
+		assert.ok(allowedShapes.has(url), `unexpected 2D URL in the built node: ${url}`);
 	}
 });

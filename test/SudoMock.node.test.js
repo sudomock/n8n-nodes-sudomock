@@ -28,10 +28,16 @@ const BACKEND_CONTRACT = {
 	list2DMockups: { method: 'GET', url: () => PUBLIC_2D_BASE },
 	get2DMockup: { method: 'GET', url: (id) => `${PUBLIC_2D_BASE}/${id}` },
 	delete2DMockup: { method: 'DELETE', url: (id) => `${PUBLIC_2D_BASE}/${id}` },
-	set2DPrintAreas: { method: 'PUT', url: (id) => `${PUBLIC_2D_BASE}/${id}/print-areas` },
+	set2DPrintAreas: {
+		method: 'PUT',
+		url: (id) => `${PUBLIC_2D_BASE}/${id}/print-areas`,
+	},
 	// The mockup id travels in the PATH. The body carries print_areas and
 	// export_options only; mockup_uuid in the body is not part of the contract.
-	render2DMockup: { method: 'POST', url: (id) => `${PUBLIC_2D_BASE}/${id}/render` },
+	render2DMockup: {
+		method: 'POST',
+		url: (id) => `${PUBLIC_2D_BASE}/${id}/render`,
+	},
 };
 
 // Path fragments that must never appear in a URL the node builds.
@@ -70,6 +76,12 @@ const existingOperations = [
 	'webhookRotateSecret',
 	'webhookTest',
 	'webhookUpdate',
+	'deleteArtworks',
+	'deleteFont',
+	'getFont',
+	'listFonts',
+	'storeArtworks',
+	'uploadFont',
 ];
 
 const twoDOperations = Object.keys(BACKEND_CONTRACT);
@@ -106,11 +118,35 @@ const cases = [
 			twoDSourceMode: 'url',
 			twoDSourceUrl: 'https://cdn.example.com/product.png',
 			twoDName: 'T-Shirt Front',
+			twoDCreateIsAsync: true,
+			'twoDSetPrintAreas.items': [
+				{
+					point1X: 10,
+					point1Y: 20,
+					point2X: 110,
+					point2Y: 20,
+					point3X: 110,
+					point3Y: 120,
+					point4X: 10,
+					point4Y: 120,
+				},
+			],
 		},
 		expected: {
 			body: {
 				source_url: 'https://cdn.example.com/product.png',
 				name: 'T-Shirt Front',
+				is_async: true,
+				print_areas: [
+					{
+						points: [
+							[10, 20],
+							[110, 20],
+							[110, 120],
+							[10, 120],
+						],
+					},
+				],
 			},
 			json: true,
 		},
@@ -177,6 +213,7 @@ const cases = [
 		operation: 'render2DMockup',
 		parameters: {
 			twoDMockupUuid: MOCKUP_ID,
+			twoDRenderIsAsync: true,
 			'twoDRenderPrintAreas.items': [
 				{
 					uuid: 'print-area-1',
@@ -197,6 +234,7 @@ const cases = [
 		pathId: MOCKUP_ID,
 		expected: {
 			body: {
+				is_async: true,
 				print_areas: [
 					{
 						uuid: 'print-area-1',
@@ -272,9 +310,7 @@ function runOperation(testCase) {
 		getNode: () => ({}),
 	};
 
-	return new SudoMock()
-		.execute.call(context)
-		.then((output) => ({ calls, output, response }));
+	return new SudoMock().execute.call(context).then((output) => ({ calls, output, response }));
 }
 
 test('2D operations call the documented backend paths', async (t) => {
@@ -354,9 +390,194 @@ test('render sends the mockup id in the path only, never in the body', async () 
 		assert.deepEqual(
 			Object.keys(body).sort(),
 			Object.keys(testCase.expected.body).sort(),
-			'render body may carry print_areas and export_options only',
+			'render body may carry only documented render fields',
 		);
 	}
+});
+
+test('recent API resources, job kinds, and webhook events are exposed', () => {
+	const properties = new SudoMock().description.properties;
+	const events = [
+		'render.succeeded',
+		'render.failed',
+		'upload.succeeded',
+		'video.succeeded',
+		'video.failed',
+		'2d_mockup.ready',
+		'2d_mockup.rejected',
+		'2d_mockup.failed',
+		'2d_render.succeeded',
+		'2d_render.failed',
+		'webhook.test',
+	];
+
+	assert.deepEqual(
+		properties
+			.find((property) => property.name === 'webhookEvents')
+			.options.map((option) => option.value),
+		events,
+	);
+	for (const name of ['webhookDeliveriesFilters', 'webhookEventsFilters']) {
+		assert.deepEqual(
+			properties
+				.find((property) => property.name === name)
+				.options.find((option) => option.name === 'eventType')
+				.options.map((option) => option.value),
+			events,
+		);
+	}
+
+	const kind = properties
+		.find((property) => property.name === 'listJobsFilters')
+		.options.find((option) => option.name === 'kind');
+	assert.deepEqual(
+		kind.options.map((option) => option.value),
+		['render', 'upload', 'video', '2d_create', '2d_render'],
+	);
+});
+
+test('text layers, fonts, and artworks use the shipped API contract', async (t) => {
+	const resourceCases = [
+		{
+			operation: 'render',
+			parameters: {
+				mockupUuid: 'mockup-1',
+				'smartObjects.items': [],
+				textLayers: JSON.stringify([{ uuid: 'layer-1', text: 'Custom name', fit: 'overflow' }]),
+				exportOptions: {},
+			},
+			expected: {
+				method: 'POST',
+				url: `${API_BASE}/renders`,
+				body: {
+					mockup_uuid: 'mockup-1',
+					smart_objects: [],
+					text_layers: [{ uuid: 'layer-1', text: 'Custom name', fit: 'overflow' }],
+				},
+				json: true,
+			},
+		},
+		{
+			operation: 'listFonts',
+			parameters: {
+				fontFilters: {
+					page: 2,
+					perPage: 25,
+					category: 'serif',
+					search: 'Brand',
+					scope: 'custom',
+				},
+			},
+			expected: {
+				method: 'GET',
+				url: `${API_BASE}/fonts`,
+				qs: {
+					page: 2,
+					per_page: 25,
+					category: 'serif',
+					search: 'Brand',
+					scope: 'custom',
+				},
+				json: true,
+			},
+		},
+		{
+			operation: 'getFont',
+			parameters: { fontUuid: 'font-1' },
+			expected: { method: 'GET', url: `${API_BASE}/fonts/font-1`, json: true },
+		},
+		{
+			operation: 'uploadFont',
+			parameters: {
+				fontUrl: 'https://cdn.example.com/Brand.ttf',
+				fontLicenseConfirmed: true,
+			},
+			expected: {
+				method: 'POST',
+				url: `${API_BASE}/fonts`,
+				body: {
+					url: 'https://cdn.example.com/Brand.ttf',
+					license_confirmed: true,
+				},
+				json: true,
+			},
+		},
+		{
+			operation: 'deleteFont',
+			parameters: { fontUuid: 'font-1' },
+			expected: {
+				method: 'DELETE',
+				url: `${API_BASE}/fonts/font-1`,
+				json: true,
+			},
+		},
+		{
+			operation: 'storeArtworks',
+			parameters: {
+				artworkMockupUuid: 'mockup-1',
+				'artworkItems.items': [{ smartObjectUuid: 'layer-1', base64: 'aW1hZ2U=' }],
+				artworkPreviewUrl: 'https://cdn.example.com/preview.png',
+			},
+			expected: {
+				method: 'POST',
+				url: `${API_BASE}/artworks`,
+				body: {
+					mockup_uuid: 'mockup-1',
+					items: [{ smart_object_uuid: 'layer-1', base64: 'aW1hZ2U=' }],
+					preview_url: 'https://cdn.example.com/preview.png',
+				},
+				json: true,
+			},
+		},
+		{
+			operation: 'deleteArtworks',
+			parameters: {
+				artworkDeleteMode: 'urls',
+				artworkDeleteUrls: '["https://cdn.example.com/artwork.png"]',
+			},
+			expected: {
+				method: 'POST',
+				url: `${API_BASE}/artworks/delete`,
+				body: { urls: ['https://cdn.example.com/artwork.png'] },
+				json: true,
+			},
+		},
+	];
+
+	for (const testCase of resourceCases) {
+		await t.test(testCase.operation, async () => {
+			const { calls } = await runOperation(testCase);
+			assert.deepEqual(calls[0], {
+				credential: 'sudoMockApi',
+				options: testCase.expected,
+			});
+		});
+	}
+});
+
+test('the trigger is packaged and its helper verifies the exact signed payload', () => {
+	const packageJson = require('../package.json');
+	const { verifyWebhookSignature } = require('../dist/nodes/SudoMock/webhooks.js');
+	const payload = '{"type":"2d_render.succeeded"}';
+	const timestamp = 1_700_000_000;
+	const signature = require('node:crypto')
+		.createHmac('sha256', 'secret')
+		.update(`${timestamp}.${payload}`)
+		.digest('hex');
+
+	assert.ok(packageJson.n8n.nodes.includes('dist/nodes/SudoMock/SudoMockTrigger.node.js'));
+	assert.equal(
+		verifyWebhookSignature(payload, signature, timestamp, 'secret', 300, timestamp),
+		true,
+	);
+	assert.equal(
+		verifyWebhookSignature(`${payload} `, signature, timestamp, 'secret', 300, timestamp),
+		false,
+	);
+	assert.equal(
+		verifyWebhookSignature(payload, signature, timestamp, 'secret', 300, timestamp + 301),
+		false,
+	);
 });
 
 test('the built node contains no retired or internal API paths', () => {
@@ -369,9 +590,9 @@ test('the built node contains no retired or internal API paths', () => {
 		);
 	}
 
-	const sudoaiUrls = [...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/sudoai[^'"`\s)]*/g)].map(
-		(match) => match[0],
-	);
+	const sudoaiUrls = [
+		...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/sudoai[^'"`\s)]*/g),
+	].map((match) => match[0]);
 	assert.ok(sudoaiUrls.length > 0, 'expected the node to build 2D mockup URLs');
 
 	const allowedShapes = new Set([

@@ -7,9 +7,11 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 ## Features
 
 ### Account Operations
+
 - **Get Account Info**: Retrieve account details, subscription plan, and usage statistics
 
 ### Mockup Management
+
 - **Upload PSD**: Upload PSD templates from a URL
 - **List Mockups**: List all your uploaded mockup templates with filtering and pagination
 - **Get Mockup**: Get detailed information about a specific mockup template
@@ -17,6 +19,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Delete Mockup**: Delete a specific mockup template
 
 ### 2D Mockups
+
 - **2D: Create Mockup**: Create a reusable 2D mockup from an image
 - **2D: Get Mockup**: Check preparation status and get ready print areas
 - **2D: List Mockups**: List your 2D mockups
@@ -25,18 +28,27 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **2D: Delete Mockup**: Delete a 2D mockup
 
 ### Rendering
-- **Render Mockup**: Generate mockups by combining templates with your designs. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
-- **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Pick a duration valid for the model, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
+
+- **Render Mockup**: Generate mockups with artwork, personalized text, or both. Text overrides support styled segments, fonts, size, color, stroke color, and overflow, shrink, or clip fitting. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
+- **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Choose a supported duration, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
+
+### Fonts and Order Artwork
+
+- **Fonts**: List available fonts, fetch one by UUID, upload a custom TTF or OTF from a public URL, and delete your custom fonts
+- **Order Artwork**: Store customer artwork and previews for fulfillment, then delete them by URL or mockup UUID when needed
 
 ### Async Jobs
+
 - **Get Job**: Get the status and result of an async render, upload, video, or 2D mockup job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload and 2D creation). Optionally **Wait for Completion** to poll until the job finishes.
-- **List Jobs**: List your async render, upload, and video jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
+- **List Jobs**: List your async render, upload, video, and 2D jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
 
 ### Webhooks
-Manage webhook endpoints that receive a signed HTTPS request the moment a job finishes:
+
+- **SudoMock Trigger**: Start a workflow from selected SudoMock events with automatic signature verification
+- Manage webhook endpoints that receive a signed HTTPS request the moment a job finishes:
 - **Webhook: List Endpoints**
 - **Webhook: Get Endpoint**
-- **Webhook: Create Endpoint** (set an optional description and choose any of the six canonical events, or leave empty for all)
+- **Webhook: Create Endpoint** (set an optional description and choose any current event, or leave empty for all)
 - **Webhook: Update Endpoint**
 - **Webhook: Delete Endpoint**
 - **Webhook: Rotate Secret**
@@ -46,7 +58,7 @@ Manage webhook endpoints that receive a signed HTTPS request the moment a job fi
 - **Webhook: Replay Failed Deliveries**
 - **Webhook: Events Feed** (recent deliveries across all of your endpoints)
 
-Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `webhook.test`. Deliveries are HMAC-signed; see https://sudomock.com/docs/api/webhooks for the current signature header and verification details.
+Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`, `webhook.test`. Deliveries are signed; see https://sudomock.com/docs/api/webhooks for verification details.
 
 ## Installation
 
@@ -89,12 +101,14 @@ Restart n8n after installation.
 Retrieve your account information, subscription details, and credit usage.
 
 **Output:**
+
 - Account: UUID, email, name, created date
 - Subscription: Plan name, status, billing period
 - Usage: Credits used/remaining, billing dates
 - API Key: Name, creation date, last used, total requests
 
 **Example Output:**
+
 ```json
 {
   "success": true,
@@ -124,16 +138,19 @@ Retrieve your account information, subscription details, and credit usage.
 Upload a PSD template from a public URL.
 
 **Parameters:**
+
 - **PSD File URL** (required): Public URL to your PSD file (up to Adobe's official PSD file size limit)
 - **Template Name** (optional): Custom name for the template (auto-generated if not provided)
 
 **Example:**
+
 ```
 PSD URL: https://storage.example.com/mockup.psd
 Name: T-Shirt Mockup Front
 ```
 
 **Output:**
+
 - Mockup UUID (use for rendering)
 - Smart object UUIDs and details
 - Thumbnail URLs
@@ -145,6 +162,7 @@ Name: T-Shirt Mockup Front
 List all your uploaded mockup templates with optional filtering and pagination.
 
 **Parameters:**
+
 - **Return All**: Fetch all mockups or limit results
 - **Limit**: Number of results (1-100, default: 20)
 - **Additional Options**:
@@ -155,6 +173,7 @@ List all your uploaded mockup templates with optional filtering and pagination.
   - Sort Order: `asc` or `desc`
 
 **Example:**
+
 ```
 Limit: 20
 Sort By: Created At
@@ -171,9 +190,11 @@ Each mockup as a separate item with full details (UUID, name, smart objects, thu
 Retrieve detailed information about a specific mockup template.
 
 **Parameters:**
+
 - **Mockup UUID** (required): UUID of the mockup to retrieve
 
 **Example:**
+
 ```
 Mockup UUID: c315f78f-d2c7-4541-b240-a9372842de94
 ```
@@ -188,10 +209,12 @@ Complete mockup details including all smart objects, thumbnails, and metadata.
 Update the name of a mockup template.
 
 **Parameters:**
+
 - **Mockup UUID** (required): UUID of the mockup to update
 - **New Name** (required): New name for the template
 
 **Example:**
+
 ```
 Mockup UUID: c315f78f-d2c7-4541-b240-a9372842de94
 New Name: Updated T-Shirt Mockup
@@ -207,6 +230,7 @@ Updated mockup details with the new name.
 Generate a mockup by filling smart objects with your designs.
 
 **Parameters:**
+
 - **Mockup UUID** (required): UUID from Upload PSD response
 - **Smart Objects** (required): One or more smart objects to fill
   - Smart Object UUID
@@ -227,6 +251,7 @@ Generate a mockup by filling smart objects with your designs.
   - Export Label: Custom label for file naming
 
 **Example:**
+
 ```
 Mockup UUID: abc123-def456
 Smart Object 1:
@@ -243,6 +268,7 @@ Export Options:
 ```
 
 **Output:**
+
 ```json
 {
   "success": true,
@@ -263,9 +289,11 @@ Export Options:
 Delete a specific mockup template.
 
 **Parameters:**
+
 - **Mockup UUID** (required): UUID of the mockup to delete
 
 **Example:**
+
 ```
 Mockup UUID: c315f78f-d2c7-4541-b240-a9372842de94
 ```
@@ -295,6 +323,7 @@ Create must reach `ready` through **2D: Get Mockup** before **2D: Render Mockup*
 Turn a mockup (or an existing image URL) into a short product video. Always asynchronous: returns a `job_id` you can track with **Get Job**.
 
 **Parameters:**
+
 - **Input Mode**: `Render Mockup` (render a mockup with your designs first) or `Animate Image URL` (animate a public image directly)
 - **Mockup UUID** (required in Render Mockup mode): UUID of the mockup to animate
 - **Smart Objects** (required in Render Mockup mode): one or more smart objects with a Design URL and Fit Mode
@@ -318,6 +347,7 @@ The 202 acknowledgement (`job_id`, `kind`, `status`, `status_url`, `estimated_cr
 Track an asynchronous render, upload, video, or 2D mockup job by its `job_id`.
 
 **Parameters:**
+
 - **Job ID** (required): the `job_id` from an async render, upload, video, or 2D mockup request
 - **Wait for Completion**: poll until a terminal status (`succeeded`, `failed`, `cancelled`)
 - **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
@@ -332,6 +362,7 @@ The job object. On success it surfaces `result_url` / `resultUrl` (render/video)
 List your async render, upload, and video jobs (newest first, keyset paginated).
 
 **Parameters (all optional, under Filters):**
+
 - **Kind**: `render`, `upload`, or `video`
 - **Mockup UUID**: only jobs derived from this source mockup
 - **Limit**: 1-50 (default 20)
@@ -349,6 +380,7 @@ List your async render, upload, and video jobs (newest first, keyset paginated).
 Manage webhook endpoints and their deliveries. See the [Webhooks](#webhooks) feature list above for the full operation set and the canonical event types.
 
 **Common parameters:**
+
 - **Webhook Endpoint ID** (required for get/update/delete/rotate/test/deliveries/replay/replay-failed)
 - **Endpoint URL** + **Description** (create) and **Events** (create/update): leave Events empty to subscribe to all
 - **Delivery ID** (replay)
@@ -361,9 +393,11 @@ Manage webhook endpoints and their deliveries. See the [Webhooks](#webhooks) fea
 Ready-to-use n8n workflows are available in the [`examples/`](./examples) folder:
 
 ### 1. Complete API Test Workflow
+
 **File**: [`examples/complete-test-workflow.json`](./examples/complete-test-workflow.json)
 
 Tests the core mockup operations in sequence:
+
 - Get Account Info → Upload PSD → Get Mockup → List Mockups
 - Render Mockup → Update Name → Verify Update → Delete Mockup
 
@@ -372,9 +406,11 @@ Perfect for verifying your setup and understanding the complete workflow.
 [View Details →](./examples/README.md#1-complete-api-test-complete-test-workflowjson)
 
 ### 2. Rate Limit Handling Workflow
+
 **File**: [`examples/rate-limit-test-workflow.json`](./examples/rate-limit-test-workflow.json)
 
 Demonstrates proper rate limit error handling with automatic retry logic:
+
 - Detects 429 errors
 - Extracts retry-after value
 - Waits and automatically retries
@@ -383,9 +419,11 @@ Demonstrates proper rate limit error handling with automatic retry logic:
 [View Details →](./examples/README.md#2-rate-limit-error-handling-test-rate-limit-test-workflowjson)
 
 ### 3. Sequential Batch Render Workflow
+
 **File**: [`examples/batch-render-workflow.json`](./examples/batch-render-workflow.json)
 
 Demonstrates the power of n8n workflows with sequential batch processing:
+
 - Renders 10 mockups one after another
 - Uses different designs for each render
 - 2-second delay between renders to avoid rate limits
@@ -398,11 +436,13 @@ Perfect for understanding batch processing and workflow automation.
 ### Quick Start with Examples
 
 1. Import a workflow:
+
    ```
    n8n UI → Workflows → Import from File → Select workflow JSON
    ```
 
 2. Configure credentials:
+
    ```
    Click any SudoMock node → Credentials → Select your API key
    ```
@@ -481,12 +521,12 @@ Unauthenticated requests (IP-based): **30 requests per minute**
 
 ### Concurrent Request Limits (Plan-Based)
 
-| Plan | Concurrent Renders | Concurrent Uploads |
-|------|-------------------|--------------------|
-| Free | 1 | 1 |
-| Starter | 3 | 2 |
-| Pro | 10 | 5 |
-| Scale | 25 | 10 |
+| Plan    | Concurrent Renders | Concurrent Uploads |
+| ------- | ------------------ | ------------------ |
+| Free    | 1                  | 1                  |
+| Starter | 3                  | 2                  |
+| Pro     | 10                 | 5                  |
+| Scale   | 25                 | 10                 |
 
 ### Rate Limit Error Handling
 
@@ -495,6 +535,7 @@ The node automatically detects and handles two types of rate limit errors:
 #### 1. Request Rate Limit Exceeded (1000 RPM)
 
 **Error Output:**
+
 ```json
 {
   "error": "Rate limit exceeded (1000 requests/minute). Please retry after 42 seconds.",
@@ -513,6 +554,7 @@ The node automatically detects and handles two types of rate limit errors:
 #### 2. Concurrent Limit Exceeded (Plan-Based)
 
 **Error Output:**
+
 ```json
 {
   "error": "Concurrent render limit reached (11/10). Please wait 5 seconds and try again.",
@@ -549,11 +591,13 @@ The node automatically detects and handles two types of rate limit errors:
 ## Error Handling
 
 All operations support the **Continue On Fail** option in n8n. When enabled:
+
 - Errors are captured as output items
 - Workflow continues to next item
 - Error details included in output
 
 **Example Error Output:**
+
 ```json
 {
   "error": "Rate limit exceeded. Retry after 42 seconds.",

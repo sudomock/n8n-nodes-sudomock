@@ -11,7 +11,37 @@ import {
 	sleep,
 } from 'n8n-workflow';
 
+import { WEBHOOK_EVENT_OPTIONS } from './webhooks';
+
 const TERMINAL_JOB_STATUSES = ['succeeded', 'failed', 'cancelled'];
+
+interface TwoDPrintAreaPoints {
+	point1X: number;
+	point1Y: number;
+	point2X: number;
+	point2Y: number;
+	point3X: number;
+	point3Y: number;
+	point4X: number;
+	point4Y: number;
+}
+
+function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[]) {
+	return printAreas.map((area) => ({
+		points: [
+			[area.point1X, area.point1Y],
+			[area.point2X, area.point2Y],
+			[area.point3X, area.point3Y],
+			[area.point4X, area.point4Y],
+		],
+	}));
+}
+
+function parseJsonArray(value: unknown, name: string): unknown[] {
+	const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+	if (!Array.isArray(parsed)) throw new Error(`${name} must be a JSON array`);
+	return parsed;
+}
 
 /**
  * Poll GET /api/v1/jobs/{job_id} until the job reaches a terminal status
@@ -57,7 +87,8 @@ export class SudoMock implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Generate PSD and 2D mockups and product videos for Print-on-Demand automation. Upload PSDs, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
+		description:
+			'Generate PSD and 2D mockups and product videos for Print-on-Demand automation. Upload PSDs, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
 		defaults: {
 			name: 'SudoMock',
 		},
@@ -83,8 +114,7 @@ export class SudoMock implements INodeType {
 					{
 						name: '2D: Create Mockup',
 						value: 'create2DMockup',
-						description:
-							'Create a 2D mockup asynchronously. Returns a job immediately; use 2D: Get Mockup until status is ready before rendering.',
+						description: 'Create a 2D mockup now or queue it for background processing',
 						action: 'Create a 2D mockup',
 					},
 					{
@@ -118,10 +148,46 @@ export class SudoMock implements INodeType {
 						action: 'Delete a 2D mockup',
 					},
 					{
+						name: 'Artwork: Delete Stored Files',
+						value: 'deleteArtworks',
+						description: 'Delete stored order artwork by URL or mockup UUID',
+						action: 'Delete stored artwork',
+					},
+					{
+						name: 'Artwork: Store Files',
+						value: 'storeArtworks',
+						description: 'Store customer artwork and an optional preview for order fulfillment',
+						action: 'Store artwork',
+					},
+					{
 						name: 'Delete Mockup',
 						value: 'deleteMockup',
 						description: 'Delete a specific mockup template',
 						action: 'Delete a mockup',
+					},
+					{
+						name: 'Font: Delete Custom Font',
+						value: 'deleteFont',
+						description: 'Delete one of your uploaded fonts',
+						action: 'Delete a custom font',
+					},
+					{
+						name: 'Font: Get Font',
+						value: 'getFont',
+						description: 'Get one available font by UUID',
+						action: 'Get a font',
+					},
+					{
+						name: 'Font: List Fonts',
+						value: 'listFonts',
+						description: 'List system fonts and your uploaded fonts',
+						action: 'List fonts',
+					},
+					{
+						name: 'Font: Upload From URL',
+						value: 'uploadFont',
+						description: 'Upload a custom TTF or OTF font from a public URL',
+						action: 'Upload a custom font',
 					},
 					{
 						name: 'Get Account Info',
@@ -144,7 +210,8 @@ export class SudoMock implements INodeType {
 					{
 						name: 'Get Job',
 						value: 'getJob',
-						description: 'Poll an async job by its job_id (GET /jobs/{job_id}) to get its status and result',
+						description:
+							'Poll an async job by its job_id (GET /jobs/{job_id}) to get its status and result',
 						action: 'Get a job',
 					},
 					{
@@ -317,18 +384,21 @@ export class SudoMock implements INodeType {
 				description: 'Optional human-readable name for the new 2D mockup',
 			},
 			{
+				displayName: 'Run Asynchronously',
+				name: 'twoDCreateIsAsync',
+				type: 'boolean',
+				displayOptions: { show: { operation: ['create2DMockup'] } },
+				default: false,
+				description: 'Whether to queue creation and return a job_id (kind: 2d_create) immediately',
+			},
+			{
 				displayName: 'Mockup UUID',
 				name: 'twoDMockupUuid',
 				type: 'string',
 				required: true,
 				displayOptions: {
 					show: {
-						operation: [
-							'get2DMockup',
-							'set2DPrintAreas',
-							'render2DMockup',
-							'delete2DMockup',
-						],
+						operation: ['get2DMockup', 'set2DPrintAreas', 'render2DMockup', 'delete2DMockup'],
 					},
 				},
 				default: '',
@@ -342,15 +412,14 @@ export class SudoMock implements INodeType {
 				typeOptions: {
 					multipleValues: true,
 				},
-				required: true,
 				displayOptions: {
 					show: {
-						operation: ['set2DPrintAreas'],
+						operation: ['create2DMockup', 'set2DPrintAreas'],
 					},
 				},
 				default: {},
 				placeholder: 'Add Print Area',
-				description: 'Four coordinate pairs that define each print area quad',
+				description: "Optional during creation; required when replacing a mockup's print areas",
 				options: [
 					{
 						name: 'items',
@@ -734,6 +803,15 @@ export class SudoMock implements INodeType {
 					},
 				],
 			},
+			{
+				displayName: 'Run Asynchronously',
+				name: 'twoDRenderIsAsync',
+				type: 'boolean',
+				displayOptions: { show: { operation: ['render2DMockup'] } },
+				default: false,
+				description:
+					'Whether to queue the render and return a job_id (kind: 2d_render) immediately',
+			},
 
 			// ============================================
 			// UPLOAD PSD PARAMETERS
@@ -750,7 +828,8 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: 'https://your-storage.com/mockup-template.psd',
-				description: "Public URL to your PSD file (up to Adobe's official PSD file size limit). Use S3, GCS, or any public URL.",
+				description:
+					"Public URL to your PSD file (up to Adobe's official PSD file size limit). Use S3, GCS, or any public URL.",
 			},
 			{
 				displayName: 'Template Name',
@@ -904,7 +983,8 @@ export class SudoMock implements INodeType {
 											minValue: 1,
 										},
 										default: 0,
-										description: 'Custom asset width override in pixels. 0 = use smart object bounds.',
+										description:
+											'Custom asset width override in pixels. 0 = use smart object bounds.',
 									},
 									{
 										displayName: 'Custom Height',
@@ -914,7 +994,8 @@ export class SudoMock implements INodeType {
 											minValue: 1,
 										},
 										default: 0,
-										description: 'Custom asset height override in pixels. 0 = use smart object bounds.',
+										description:
+											'Custom asset height override in pixels. 0 = use smart object bounds.',
 									},
 									{
 										displayName: 'Position Top',
@@ -999,7 +1080,8 @@ export class SudoMock implements INodeType {
 											maxValue: 100,
 										},
 										default: 0,
-										description: 'Saturation adjustment (-100 to 100). 0=no change, -100=grayscale.',
+										description:
+											'Saturation adjustment (-100 to 100). 0=no change, -100=grayscale.',
 									},
 									{
 										displayName: 'Vibrance',
@@ -1029,6 +1111,15 @@ export class SudoMock implements INodeType {
 						],
 					},
 				],
+			},
+			{
+				displayName: 'Text Layers',
+				name: 'textLayers',
+				type: 'json',
+				displayOptions: { show: { operation: ['render'] } },
+				default: '[]',
+				description:
+					'Optional text layer override array. Each item needs uuid plus text or segments, and can include font, font_size, color, stroke_color, and fit (overflow, shrink, or clip).',
 			},
 			{
 				displayName: 'Export Options',
@@ -1074,7 +1165,8 @@ export class SudoMock implements INodeType {
 							maxValue: 10000,
 						},
 						default: 2048,
-						description: 'Output width in pixels (100-10000). Height scales proportionally. Powers of 2 (1024, 2048, 4096) recommended.',
+						description:
+							'Output width in pixels (100-10000). Height scales proportionally. Powers of 2 (1024, 2048, 4096) recommended.',
 					},
 					{
 						displayName: 'Quality',
@@ -1223,9 +1315,21 @@ export class SudoMock implements INodeType {
 								name: 'fit',
 								type: 'options',
 								options: [
-									{ name: 'Fill', value: 'fill', description: 'Stretch to fill entire area' },
-									{ name: 'Contain', value: 'contain', description: 'Fit inside, may leave space' },
-									{ name: 'Cover', value: 'cover', description: 'Fill area, may crop edges (recommended)' },
+									{
+										name: 'Fill',
+										value: 'fill',
+										description: 'Stretch to fill entire area',
+									},
+									{
+										name: 'Contain',
+										value: 'contain',
+										description: 'Fit inside, may leave space',
+									},
+									{
+										name: 'Cover',
+										value: 'cover',
+										description: 'Fill area, may crop edges (recommended)',
+									},
 								],
 								default: 'cover',
 								description: 'How to fit the design in the smart object bounds',
@@ -1285,7 +1389,11 @@ export class SudoMock implements INodeType {
 						name: 'motion',
 						type: 'options',
 						options: [
-							{ name: 'Ambient', value: 'ambient', description: 'Subtle ambient motion (default)' },
+							{
+								name: 'Ambient',
+								value: 'ambient',
+								description: 'Subtle ambient motion (default)',
+							},
 							{
 								name: 'Showcase',
 								value: 'showcase',
@@ -1406,6 +1514,8 @@ export class SudoMock implements INodeType {
 							{ name: 'Render', value: 'render' },
 							{ name: 'Upload', value: 'upload' },
 							{ name: 'Video', value: 'video' },
+							{ name: '2D Create', value: '2d_create' },
+							{ name: '2D Render', value: '2d_render' },
 						],
 						default: 'render',
 						description: 'Only return jobs of this kind',
@@ -1433,9 +1543,179 @@ export class SudoMock implements INodeType {
 						name: 'cursor',
 						type: 'string',
 						default: '',
-						description: 'Opaque keyset cursor from a previous response (next_cursor) for pagination',
+						description:
+							'Opaque keyset cursor from a previous response (next_cursor) for pagination',
 					},
 				],
+			},
+
+			// ============================================
+			// FONT PARAMETERS
+			// ============================================
+			{
+				displayName: 'Font UUID',
+				name: 'fontUuid',
+				type: 'string',
+				required: true,
+				displayOptions: { show: { operation: ['getFont', 'deleteFont'] } },
+				default: '',
+				description: 'Font UUID from Font: List Fonts',
+			},
+			{
+				displayName: 'Font URL',
+				name: 'fontUrl',
+				type: 'string',
+				required: true,
+				displayOptions: { show: { operation: ['uploadFont'] } },
+				default: '',
+				placeholder: 'https://example.com/fonts/Brand-Bold.ttf',
+				description: 'Public URL of a TTF or OTF font file',
+			},
+			{
+				displayName: 'License Confirmed',
+				name: 'fontLicenseConfirmed',
+				type: 'boolean',
+				displayOptions: { show: { operation: ['uploadFont'] } },
+				default: false,
+				description: 'Whether you confirm you have the right to use and embed this font',
+			},
+			{
+				displayName: 'Filters',
+				name: 'fontFilters',
+				type: 'collection',
+				placeholder: 'Add Filter',
+				displayOptions: { show: { operation: ['listFonts'] } },
+				default: {},
+				options: [
+					{
+						displayName: 'Page',
+						name: 'page',
+						type: 'number',
+						typeOptions: { minValue: 1 },
+						default: 1,
+					},
+					{
+						displayName: 'Results Per Page',
+						name: 'perPage',
+						type: 'number',
+						typeOptions: { minValue: 1, maxValue: 100 },
+						default: 50,
+					},
+					{
+						displayName: 'Category',
+						name: 'category',
+						type: 'string',
+						default: '',
+					},
+					{
+						displayName: 'Search',
+						name: 'search',
+						type: 'string',
+						default: '',
+						description: 'Filter by font family name',
+					},
+					{
+						displayName: 'Scope',
+						name: 'scope',
+						type: 'options',
+						options: [
+							{ name: 'All', value: 'all' },
+							{ name: 'System', value: 'system' },
+							{ name: 'Custom', value: 'custom' },
+						],
+						default: 'all',
+					},
+				],
+			},
+
+			// ============================================
+			// ARTWORK PARAMETERS
+			// ============================================
+			{
+				displayName: 'Mockup UUID',
+				name: 'artworkMockupUuid',
+				type: 'string',
+				required: true,
+				displayOptions: { show: { operation: ['storeArtworks'] } },
+				default: '',
+				description: 'Mockup UUID the stored artwork belongs to',
+			},
+			{
+				displayName: 'Artwork Items',
+				name: 'artworkItems',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true },
+				displayOptions: { show: { operation: ['storeArtworks'] } },
+				default: {},
+				placeholder: 'Add Artwork',
+				description: 'Up to 10 artwork files to keep for order fulfillment',
+				options: [
+					{
+						name: 'items',
+						displayName: 'Artwork',
+						values: [
+							{
+								displayName: 'Smart Object UUID',
+								name: 'smartObjectUuid',
+								type: 'string',
+								required: true,
+								default: '',
+							},
+							{
+								displayName: 'Base64 Artwork',
+								name: 'base64',
+								type: 'string',
+								required: true,
+								default: '',
+								description: 'Raw base64 image bytes without a data URL prefix',
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'Preview URL',
+				name: 'artworkPreviewUrl',
+				type: 'string',
+				displayOptions: { show: { operation: ['storeArtworks'] } },
+				default: '',
+				description: 'Optional render URL to keep with the order',
+			},
+			{
+				displayName: 'Delete By',
+				name: 'artworkDeleteMode',
+				type: 'options',
+				displayOptions: { show: { operation: ['deleteArtworks'] } },
+				options: [
+					{ name: 'URLs', value: 'urls' },
+					{ name: 'Mockup UUID', value: 'mockup' },
+				],
+				default: 'urls',
+			},
+			{
+				displayName: 'URLs',
+				name: 'artworkDeleteUrls',
+				type: 'json',
+				required: true,
+				displayOptions: {
+					show: { operation: ['deleteArtworks'], artworkDeleteMode: ['urls'] },
+				},
+				default: '[]',
+				description: 'JSON array of stored artwork or preview URLs to delete',
+			},
+			{
+				displayName: 'Mockup UUID',
+				name: 'artworkDeleteMockupUuid',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['deleteArtworks'],
+						artworkDeleteMode: ['mockup'],
+					},
+				},
+				default: '',
+				description: 'Delete all stored artwork belonging to this mockup',
 			},
 
 			// ============================================
@@ -1476,14 +1756,7 @@ export class SudoMock implements INodeType {
 						operation: ['webhookCreate', 'webhookUpdate'],
 					},
 				},
-				options: [
-					{ name: 'render.succeeded', value: 'render.succeeded' },
-					{ name: 'render.failed', value: 'render.failed' },
-					{ name: 'upload.succeeded', value: 'upload.succeeded' },
-					{ name: 'video.succeeded', value: 'video.succeeded' },
-					{ name: 'video.failed', value: 'video.failed' },
-					{ name: 'webhook.test', value: 'webhook.test' },
-				],
+				options: WEBHOOK_EVENT_OPTIONS,
 				default: [],
 				description:
 					'Events this endpoint receives. Leave empty to subscribe to all events, including ones added in the future.',
@@ -1588,14 +1861,7 @@ export class SudoMock implements INodeType {
 						displayName: 'Event Type',
 						name: 'eventType',
 						type: 'options',
-						options: [
-							{ name: 'render.succeeded', value: 'render.succeeded' },
-							{ name: 'render.failed', value: 'render.failed' },
-							{ name: 'upload.succeeded', value: 'upload.succeeded' },
-							{ name: 'video.succeeded', value: 'video.succeeded' },
-							{ name: 'video.failed', value: 'video.failed' },
-							{ name: 'webhook.test', value: 'webhook.test' },
-						],
+						options: WEBHOOK_EVENT_OPTIONS,
 						default: 'render.succeeded',
 						description: 'Only return deliveries for this event type',
 					},
@@ -1641,14 +1907,7 @@ export class SudoMock implements INodeType {
 						displayName: 'Event Type',
 						name: 'eventType',
 						type: 'options',
-						options: [
-							{ name: 'render.succeeded', value: 'render.succeeded' },
-							{ name: 'render.failed', value: 'render.failed' },
-							{ name: 'upload.succeeded', value: 'upload.succeeded' },
-							{ name: 'video.succeeded', value: 'video.succeeded' },
-							{ name: 'video.failed', value: 'video.failed' },
-							{ name: 'webhook.test', value: 'webhook.test' },
-						],
+						options: WEBHOOK_EVENT_OPTIONS,
 						default: 'render.succeeded',
 						description: 'Only return deliveries for this event type',
 					},
@@ -1876,7 +2135,13 @@ export class SudoMock implements INodeType {
 				else if (operation === 'create2DMockup') {
 					const sourceMode = this.getNodeParameter('twoDSourceMode', i) as string;
 					const name = this.getNodeParameter('twoDName', i, '') as string;
-					const body: Record<string, string> = {};
+					const isAsync = this.getNodeParameter('twoDCreateIsAsync', i, false) as boolean;
+					const printAreas = this.getNodeParameter(
+						'twoDSetPrintAreas.items',
+						i,
+						[],
+					) as TwoDPrintAreaPoints[];
+					const body: Record<string, unknown> = {};
 
 					if (sourceMode === 'base64') {
 						body.source_base64 = this.getNodeParameter('twoDSourceBase64', i) as string;
@@ -1885,6 +2150,12 @@ export class SudoMock implements INodeType {
 					}
 					if (name) {
 						body.name = name;
+					}
+					if (isAsync) {
+						body.is_async = true;
+					}
+					if (printAreas.length > 0) {
+						body.print_areas = format2DPrintAreas(printAreas);
 					}
 
 					const response = await this.helpers.httpRequestWithAuthentication.call(
@@ -1897,7 +2168,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -1914,7 +2188,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -1930,7 +2207,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -1938,26 +2218,15 @@ export class SudoMock implements INodeType {
 				// ========================================
 				else if (operation === 'set2DPrintAreas') {
 					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
-					const printAreas = this.getNodeParameter('twoDSetPrintAreas.items', i, []) as Array<{
-						point1X: number;
-						point1Y: number;
-						point2X: number;
-						point2Y: number;
-						point3X: number;
-						point3Y: number;
-						point4X: number;
-						point4Y: number;
-					}>;
-					const body = {
-						print_areas: printAreas.map((area) => ({
-							points: [
-								[area.point1X, area.point1Y],
-								[area.point2X, area.point2Y],
-								[area.point3X, area.point3Y],
-								[area.point4X, area.point4Y],
-							],
-						})),
-					};
+					const printAreas = this.getNodeParameter(
+						'twoDSetPrintAreas.items',
+						i,
+						[],
+					) as TwoDPrintAreaPoints[];
+					if (printAreas.length === 0) {
+						throw new NodeOperationError(this.getNode(), 'Add at least one print area');
+					}
+					const body = { print_areas: format2DPrintAreas(printAreas) };
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
@@ -1968,7 +2237,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2008,11 +2280,15 @@ export class SudoMock implements INodeType {
 						return printArea;
 					});
 					const exportOptions = this.getNodeParameter('twoDExportOptions', i, {}) as IDataObject;
+					const isAsync = this.getNodeParameter('twoDRenderIsAsync', i, false) as boolean;
 					const body: Record<string, unknown> = {
 						print_areas: printAreas,
 					};
 					if (Object.keys(exportOptions).length > 0) {
 						body.export_options = exportOptions;
+					}
+					if (isAsync) {
+						body.is_async = true;
 					}
 
 					const response = await this.helpers.httpRequestWithAuthentication.call(
@@ -2025,7 +2301,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2044,6 +2323,166 @@ export class SudoMock implements INodeType {
 							mockupUuid,
 							statusCode: 204,
 						} as IDataObject,
+						pairedItem: { item: i },
+					});
+				}
+
+				// ========================================
+				// FONTS
+				// ========================================
+				else if (operation === 'listFonts') {
+					const filters = this.getNodeParameter('fontFilters', i, {}) as {
+						page?: number;
+						perPage?: number;
+						category?: string;
+						search?: string;
+						scope?: string;
+					};
+					const qs: IDataObject = {};
+					if (filters.page !== undefined) qs.page = filters.page;
+					if (filters.perPage !== undefined) qs.per_page = filters.perPage;
+					if (filters.category) qs.category = filters.category;
+					if (filters.search) qs.search = filters.search;
+					if (filters.scope) qs.scope = filters.scope;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: 'https://api.sudomock.com/api/v1/fonts',
+							qs,
+							json: true,
+						},
+					);
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
+				} else if (operation === 'getFont') {
+					const fontUuid = this.getNodeParameter('fontUuid', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: `https://api.sudomock.com/api/v1/fonts/${fontUuid}`,
+							json: true,
+						},
+					);
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
+				} else if (operation === 'uploadFont') {
+					const licenseConfirmed = this.getNodeParameter(
+						'fontLicenseConfirmed',
+						i,
+						false,
+					) as boolean;
+					if (!licenseConfirmed) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Confirm you have the right to use and embed this font',
+						);
+					}
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: 'https://api.sudomock.com/api/v1/fonts',
+							body: {
+								url: this.getNodeParameter('fontUrl', i) as string,
+								license_confirmed: true,
+							},
+							json: true,
+						},
+					);
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
+				} else if (operation === 'deleteFont') {
+					const fontUuid = this.getNodeParameter('fontUuid', i) as string;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'DELETE',
+							url: `https://api.sudomock.com/api/v1/fonts/${fontUuid}`,
+							json: true,
+						},
+					);
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
+				}
+
+				// ========================================
+				// ARTWORKS
+				// ========================================
+				else if (operation === 'storeArtworks') {
+					const items = this.getNodeParameter('artworkItems.items', i, []) as Array<{
+						smartObjectUuid: string;
+						base64: string;
+					}>;
+					const previewUrl = this.getNodeParameter('artworkPreviewUrl', i, '') as string;
+					if (items.length === 0 && !previewUrl) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Add at least one artwork item or a preview URL',
+						);
+					}
+					if (items.length > 10) {
+						throw new NodeOperationError(this.getNode(), 'Artwork Items supports up to 10 files');
+					}
+					const body: Record<string, unknown> = {
+						mockup_uuid: this.getNodeParameter('artworkMockupUuid', i) as string,
+						items: items.map((item) => ({
+							smart_object_uuid: item.smartObjectUuid,
+							base64: item.base64,
+						})),
+					};
+					if (previewUrl) body.preview_url = previewUrl;
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: 'https://api.sudomock.com/api/v1/artworks',
+							body,
+							json: true,
+						},
+					);
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
+				} else if (operation === 'deleteArtworks') {
+					const mode = this.getNodeParameter('artworkDeleteMode', i) as string;
+					const body: Record<string, unknown> = {};
+					if (mode === 'mockup') {
+						body.mockup_uuid = this.getNodeParameter('artworkDeleteMockupUuid', i) as string;
+					} else {
+						const urls = parseJsonArray(this.getNodeParameter('artworkDeleteUrls', i, []), 'URLs');
+						if (urls.length === 0 || !urls.every((url) => typeof url === 'string')) {
+							throw new NodeOperationError(this.getNode(), 'URLs must contain at least one URL');
+						}
+						body.urls = urls;
+					}
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: 'https://api.sudomock.com/api/v1/artworks/delete',
+							body,
+							json: true,
+						},
+					);
+					returnData.push({
+						json: response as IDataObject,
 						pairedItem: { item: i },
 					});
 				}
@@ -2075,6 +2514,10 @@ export class SudoMock implements INodeType {
 							blur?: number;
 						};
 					}>;
+					const textLayers = parseJsonArray(
+						this.getNodeParameter('textLayers', i, []),
+						'Text Layers',
+					) as Array<Record<string, unknown>>;
 					const exportOptions = this.getNodeParameter('exportOptions', i, {}) as {
 						imageFormat?: string;
 						imageSize?: number;
@@ -2177,6 +2620,15 @@ export class SudoMock implements INodeType {
 						mockup_uuid: mockupUuid,
 						smart_objects: smartObjects,
 					};
+					if (textLayers.length > 0) {
+						body.text_layers = textLayers;
+					}
+					if (smartObjects.length === 0 && textLayers.length === 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Add at least one smart object or text layer override',
+						);
+					}
 					if (isAsync) {
 						body.is_async = true;
 					}
@@ -2218,14 +2670,14 @@ export class SudoMock implements INodeType {
 					// Response: { success: true, data: { print_files: [{ export_path, smart_object_uuid }] } }
 					// Make export paths more easily accessible
 					const outputJson: IDataObject = { ...response } as IDataObject;
-					
+
 					if (response.data?.print_files?.length > 0) {
 						// Extract first rendered image URL to top level
 						outputJson.renderedImageUrl = response.data.print_files[0].export_path;
-						
+
 						// Also add all URLs as an array
 						outputJson.allRenderedUrls = response.data.print_files.map(
-							(pf: { export_path: string }) => pf.export_path
+							(pf: { export_path: string }) => pf.export_path,
 						);
 					}
 
@@ -2311,7 +2763,10 @@ export class SudoMock implements INodeType {
 						}
 						returnData.push({ json: out, pairedItem: { item: i } });
 					} else {
-						returnData.push({ json: accepted as IDataObject, pairedItem: { item: i } });
+						returnData.push({
+							json: accepted as IDataObject,
+							pairedItem: { item: i },
+						});
 					}
 				}
 
@@ -2331,15 +2786,11 @@ export class SudoMock implements INodeType {
 						const timeout = this.getNodeParameter('jobPollTimeout', i, 300) as number;
 						job = (await pollJob.call(this, jobId, timeout)) as IDataObject;
 					} else {
-						job = (await this.helpers.httpRequestWithAuthentication.call(
-							this,
-							'sudoMockApi',
-							{
-								method: 'GET',
-								url: `https://api.sudomock.com/api/v1/jobs/${jobId}`,
-								json: true,
-							},
-						)) as IDataObject;
+						job = (await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
+							method: 'GET',
+							url: `https://api.sudomock.com/api/v1/jobs/${jobId}`,
+							json: true,
+						})) as IDataObject;
 					}
 
 					// Surface the result for convenience: result_url (render/video) or mockup_uuid (upload).
@@ -2386,7 +2837,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2402,7 +2856,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2434,7 +2891,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: { deliveries: response } as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: { deliveries: response } as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2451,7 +2911,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2478,7 +2941,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2515,7 +2981,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2552,7 +3021,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2569,7 +3041,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2602,7 +3077,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2620,7 +3098,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2637,7 +3118,10 @@ export class SudoMock implements INodeType {
 							json: true,
 						},
 					);
-					returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+					returnData.push({
+						json: response as IDataObject,
+						pairedItem: { item: i },
+					});
 				}
 
 				// ========================================
@@ -2784,15 +3268,11 @@ export class SudoMock implements INodeType {
 				else if (operation === 'deleteMockup') {
 					const mockupUuid = this.getNodeParameter('deleteMockupUuid', i) as string;
 
-					await this.helpers.httpRequestWithAuthentication.call(
-						this,
-						'sudoMockApi',
-						{
-							method: 'DELETE',
-							url: `https://api.sudomock.com/api/v1/mockups/${mockupUuid}`,
-							// No json: true - DELETE returns 204 No Content (no body)
-						},
-					);
+					await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
+						method: 'DELETE',
+						url: `https://api.sudomock.com/api/v1/mockups/${mockupUuid}`,
+						// No json: true - DELETE returns 204 No Content (no body)
+					});
 
 					// Create manual success response for 204 No Content
 					returnData.push({
@@ -2805,7 +3285,6 @@ export class SudoMock implements INodeType {
 						pairedItem: { item: i },
 					});
 				}
-
 			} catch (error: any) {
 				// Enhanced rate limit error handling
 				if (error.statusCode === 429) {
@@ -2839,15 +3318,11 @@ export class SudoMock implements INodeType {
 						});
 						continue;
 					}
-					throw new NodeApiError(
-						this.getNode(),
-						error as JsonObject,
-						{
-							message: errorMessage,
-							httpCode: '429',
-							itemIndex: i,
-						},
-					);
+					throw new NodeApiError(this.getNode(), error as JsonObject, {
+						message: errorMessage,
+						httpCode: '429',
+						itemIndex: i,
+					});
 				}
 
 				// Handle other errors
@@ -2865,14 +3340,10 @@ export class SudoMock implements INodeType {
 				}
 				// NodeApiError for HTTP errors, NodeOperationError for non-HTTP logic errors
 				if (error.statusCode) {
-					throw new NodeApiError(
-						this.getNode(),
-						(error.response?.body ?? error) as JsonObject,
-						{
-							httpCode: String(error.statusCode),
-							itemIndex: i,
-						},
-					);
+					throw new NodeApiError(this.getNode(), (error.response?.body ?? error) as JsonObject, {
+						httpCode: String(error.statusCode),
+						itemIndex: i,
+					});
 				}
 				throw new NodeOperationError(
 					this.getNode(),

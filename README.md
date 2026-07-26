@@ -31,11 +31,12 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 - **Render Mockup**: Generate mockups with artwork, personalized text, or both. Text overrides support styled segments, fonts, size, color, stroke color, and overflow, shrink, or clip fitting. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
 - **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Choose a supported duration, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
+- **Remove Background**: Isolate the subject of an image onto a transparent background and get a permanent PNG cutout URL, ready to reuse as render artwork. Costs 25 credits, refunded automatically if processing fails. The same cleanup is available inline on both render operations with the per-artwork **Remove Background** toggle.
 
 ### Fonts and Order Artwork
 
 - **Fonts**: List available fonts, fetch one by UUID, upload a custom TTF or OTF from a public URL, and delete your custom fonts
-- **Order Artwork**: Store customer artwork and previews for fulfillment, then delete them by URL or mockup UUID when needed
+- **Artwork: Delete Stored Files**: Delete stored order artwork by URL or mockup UUID
 
 ### Async Jobs
 
@@ -238,6 +239,7 @@ Generate a mockup by filling smart objects with your designs.
   - Fit Mode: `fill`, `contain`, or `cover` (recommended)
   - **Additional Options** (optional):
     - Rotation: -360 to 360 degrees
+    - Remove Background: clean the artwork before placing it (adds 25 credits per artwork)
     - Color Overlay: Hex color code
     - Color Blend Mode: Various blend modes
     - Brightness: -150 to 150
@@ -284,6 +286,38 @@ Export Options:
 
 ---
 
+### Remove Background
+
+Isolate the subject of an image onto a transparent background and get a permanent PNG cutout URL.
+
+**Parameters:**
+
+- **Image URL** (required): public URL of the image to process
+
+**Example:**
+
+```
+Image URL: https://cdn.example.com/product-photo.jpg
+```
+
+**Output:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "url": "https://cdn.sudomock.com/bg-cutouts/abc123.png",
+    "width": 2000,
+    "height": 2000,
+    "credits_charged": 25
+  }
+}
+```
+
+The returned URL is permanent and can be fed straight into **Render Mockup** or **2D: Render Mockup** as artwork. Costs 25 credits per image, refunded automatically if processing fails. To clean artwork as part of a render instead, use the per-artwork **Remove Background** toggle on either render operation.
+
+---
+
 ### Delete Mockup
 
 Delete a specific mockup template.
@@ -311,7 +345,7 @@ Create, prepare, render, and manage reusable mockups from product images without
 2. **2D: Get Mockup** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`; the ready response includes each print area's UUID and points.
 3. **2D: List Mockups** returns your 2D mockups.
 4. **2D: Set Print Areas** accepts one or more print areas. Each print area is a quad with four `[x, y]` coordinate pairs.
-5. **2D: Render Mockup** accepts the mockup UUID and one or more ready print area UUIDs. Each print area includes either an artwork URL or Base64 artwork, with optional color, adjustments, and placement. Export options support PNG or JPG at 1024, 2048, or 4096 pixels, plus quality and DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
+5. **2D: Render Mockup** accepts the mockup UUID and one or more ready print area UUIDs. Each print area includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, adjustments, and placement. Export options support PNG or JPG at 1024, 2048, or 4096 pixels, plus quality and DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
 6. **2D: Delete Mockup** deletes the selected 2D mockup.
 
 Create must reach `ready` through **2D: Get Mockup** before **2D: Render Mockup**.

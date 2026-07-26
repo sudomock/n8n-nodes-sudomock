@@ -154,12 +154,6 @@ export class SudoMock implements INodeType {
 						action: 'Delete stored artwork',
 					},
 					{
-						name: 'Artwork: Store Files',
-						value: 'storeArtworks',
-						description: 'Store customer artwork and an optional preview for order fulfillment',
-						action: 'Store artwork',
-					},
-					{
 						name: 'Delete Mockup',
 						value: 'deleteMockup',
 						description: 'Delete a specific mockup template',
@@ -219,6 +213,13 @@ export class SudoMock implements INodeType {
 						value: 'listJobs',
 						description: 'List your async render, upload, and video jobs',
 						action: 'List jobs',
+					},
+					{
+						name: 'Remove Background',
+						value: 'removeBackground',
+						description:
+							'Remove the background from an image and get a permanent transparent-PNG cutout URL. Costs 25 credits; auto-refunded on failure.',
+						action: 'Remove an image background',
 					},
 					{
 						name: 'Render Mockup',
@@ -567,6 +568,14 @@ export class SudoMock implements INodeType {
 								},
 								default: '',
 								description: 'Base64 artwork data for this print area',
+							},
+							{
+								displayName: 'Remove Background',
+								name: 'removeBackground',
+								type: 'boolean',
+								default: false,
+								description:
+									'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
 							},
 							{
 								displayName: 'Color',
@@ -1010,6 +1019,14 @@ export class SudoMock implements INodeType {
 										type: 'number',
 										default: 0,
 										description: 'Custom position left offset in pixels',
+									},
+									{
+										displayName: 'Remove Background',
+										name: 'removeBackground',
+										type: 'boolean',
+										default: false,
+										description:
+											'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
 									},
 									{
 										displayName: 'Color Overlay (Hex)',
@@ -1629,58 +1646,22 @@ export class SudoMock implements INodeType {
 			},
 
 			// ============================================
-			// ARTWORK PARAMETERS
+			// BACKGROUND REMOVAL PARAMETERS
 			// ============================================
 			{
-				displayName: 'Mockup UUID',
-				name: 'artworkMockupUuid',
+				displayName: 'Image URL',
+				name: 'removeBackgroundImageUrl',
 				type: 'string',
 				required: true,
-				displayOptions: { show: { operation: ['storeArtworks'] } },
+				displayOptions: { show: { operation: ['removeBackground'] } },
 				default: '',
-				description: 'Mockup UUID the stored artwork belongs to',
+				placeholder: 'https://cdn.example.com/product-photo.jpg',
+				description: 'Public URL of the image to isolate onto a transparent background',
 			},
-			{
-				displayName: 'Artwork Items',
-				name: 'artworkItems',
-				type: 'fixedCollection',
-				typeOptions: { multipleValues: true },
-				displayOptions: { show: { operation: ['storeArtworks'] } },
-				default: {},
-				placeholder: 'Add Artwork',
-				description: 'Up to 10 artwork files to keep for order fulfillment',
-				options: [
-					{
-						name: 'items',
-						displayName: 'Artwork',
-						values: [
-							{
-								displayName: 'Smart Object UUID',
-								name: 'smartObjectUuid',
-								type: 'string',
-								required: true,
-								default: '',
-							},
-							{
-								displayName: 'Base64 Artwork',
-								name: 'base64',
-								type: 'string',
-								required: true,
-								default: '',
-								description: 'Raw base64 image bytes without a data URL prefix',
-							},
-						],
-					},
-				],
-			},
-			{
-				displayName: 'Preview URL',
-				name: 'artworkPreviewUrl',
-				type: 'string',
-				displayOptions: { show: { operation: ['storeArtworks'] } },
-				default: '',
-				description: 'Optional render URL to keep with the order',
-			},
+
+			// ============================================
+			// ARTWORK PARAMETERS
+			// ============================================
 			{
 				displayName: 'Delete By',
 				name: 'artworkDeleteMode',
@@ -2257,6 +2238,7 @@ export class SudoMock implements INodeType {
 						artworkSource: string;
 						artworkUrl?: string;
 						base64?: string;
+						removeBackground?: boolean;
 						color?: string;
 						adjustments?: IDataObject;
 						placement?: IDataObject;
@@ -2267,6 +2249,9 @@ export class SudoMock implements INodeType {
 							printArea.base64 = area.base64;
 						} else {
 							printArea.artwork_url = area.artworkUrl;
+						}
+						if (area.removeBackground) {
+							printArea.remove_background = true;
 						}
 						if (area.color) {
 							printArea.color = area.color;
@@ -2420,38 +2405,18 @@ export class SudoMock implements INodeType {
 				}
 
 				// ========================================
-				// ARTWORKS
+				// BACKGROUND REMOVAL
 				// ========================================
-				else if (operation === 'storeArtworks') {
-					const items = this.getNodeParameter('artworkItems.items', i, []) as Array<{
-						smartObjectUuid: string;
-						base64: string;
-					}>;
-					const previewUrl = this.getNodeParameter('artworkPreviewUrl', i, '') as string;
-					if (items.length === 0 && !previewUrl) {
-						throw new NodeOperationError(
-							this.getNode(),
-							'Add at least one artwork item or a preview URL',
-						);
-					}
-					if (items.length > 10) {
-						throw new NodeOperationError(this.getNode(), 'Artwork Items supports up to 10 files');
-					}
-					const body: Record<string, unknown> = {
-						mockup_uuid: this.getNodeParameter('artworkMockupUuid', i) as string,
-						items: items.map((item) => ({
-							smart_object_uuid: item.smartObjectUuid,
-							base64: item.base64,
-						})),
-					};
-					if (previewUrl) body.preview_url = previewUrl;
+				else if (operation === 'removeBackground') {
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
 						{
 							method: 'POST',
-							url: 'https://api.sudomock.com/api/v1/artworks',
-							body,
+							url: 'https://api.sudomock.com/api/v1/remove-background',
+							body: {
+								url: this.getNodeParameter('removeBackgroundImageUrl', i) as string,
+							},
 							json: true,
 						},
 					);
@@ -2459,7 +2424,12 @@ export class SudoMock implements INodeType {
 						json: response as IDataObject,
 						pairedItem: { item: i },
 					});
-				} else if (operation === 'deleteArtworks') {
+				}
+
+				// ========================================
+				// ARTWORKS
+				// ========================================
+				else if (operation === 'deleteArtworks') {
 					const mode = this.getNodeParameter('artworkDeleteMode', i) as string;
 					const body: Record<string, unknown> = {};
 					if (mode === 'mockup') {
@@ -2500,6 +2470,7 @@ export class SudoMock implements INodeType {
 							rotate?: number;
 							base64?: string;
 							contentType?: string;
+							removeBackground?: boolean;
 							sizeWidth?: number;
 							sizeHeight?: number;
 							positionTop?: number;
@@ -2552,6 +2523,11 @@ export class SudoMock implements INodeType {
 								if (opts.contentType) {
 									asset.content_type = opts.contentType;
 								}
+							}
+
+							// Background removal surcharge, billed per unique artwork source
+							if (opts.removeBackground) {
+								asset.remove_background = true;
 							}
 
 							// Custom size override

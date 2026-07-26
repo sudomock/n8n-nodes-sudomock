@@ -80,9 +80,12 @@ const existingOperations = [
 	'deleteFont',
 	'getFont',
 	'listFonts',
-	'storeArtworks',
+	'removeBackground',
 	'uploadFont',
 ];
+
+// Operations retired from the node. They must not reappear in the dropdown.
+const retiredOperations = ['storeArtworks'];
 
 const twoDOperations = Object.keys(BACKEND_CONTRACT);
 
@@ -94,6 +97,9 @@ test('2D operations are well formed without removing existing operations', () =>
 	assert.equal(new Set(values).size, values.length);
 	for (const value of [...existingOperations, ...twoDOperations]) {
 		assert.ok(values.includes(value), `missing operation ${value}`);
+	}
+	for (const value of retiredOperations) {
+		assert.ok(!values.includes(value), `retired operation ${value} is still exposed`);
 	}
 
 	const propertyNames = properties.map((property) => property.name);
@@ -436,7 +442,7 @@ test('recent API resources, job kinds, and webhook events are exposed', () => {
 	);
 });
 
-test('text layers, fonts, and artworks use the shipped API contract', async (t) => {
+test('text layers, fonts, artwork deletion, and background removal use the shipped API contract', async (t) => {
 	const resourceCases = [
 		{
 			operation: 'render',
@@ -512,20 +518,14 @@ test('text layers, fonts, and artworks use the shipped API contract', async (t) 
 			},
 		},
 		{
-			operation: 'storeArtworks',
+			operation: 'removeBackground',
 			parameters: {
-				artworkMockupUuid: 'mockup-1',
-				'artworkItems.items': [{ smartObjectUuid: 'layer-1', base64: 'aW1hZ2U=' }],
-				artworkPreviewUrl: 'https://cdn.example.com/preview.png',
+				removeBackgroundImageUrl: 'https://cdn.example.com/product-photo.jpg',
 			},
 			expected: {
 				method: 'POST',
-				url: `${API_BASE}/artworks`,
-				body: {
-					mockup_uuid: 'mockup-1',
-					items: [{ smart_object_uuid: 'layer-1', base64: 'aW1hZ2U=' }],
-					preview_url: 'https://cdn.example.com/preview.png',
-				},
+				url: `${API_BASE}/remove-background`,
+				body: { url: 'https://cdn.example.com/product-photo.jpg' },
 				json: true,
 			},
 		},
@@ -553,6 +553,65 @@ test('text layers, fonts, and artworks use the shipped API contract', async (t) 
 			});
 		});
 	}
+});
+
+// The flag is a paid surcharge, so it must reach the API only when the user
+// asked for it, and it must never be sent as an explicit false.
+test('background removal flags travel on both render paths only when enabled', async (t) => {
+	const psdArtwork = { url: 'https://cdn.example.com/design.png', fit: 'cover' };
+	const psdParameters = (additionalOptions) => ({
+		mockupUuid: 'mockup-1',
+		'smartObjects.items': [
+			{ uuid: 'so-1', assetUrl: psdArtwork.url, fit: psdArtwork.fit, additionalOptions },
+		],
+		textLayers: '[]',
+		exportOptions: {},
+	});
+
+	await t.test('render forwards remove_background on the asset', async () => {
+		const { calls } = await runOperation({
+			operation: 'render',
+			parameters: psdParameters({ removeBackground: true }),
+		});
+
+		assert.deepEqual(calls[0].options.body, {
+			mockup_uuid: 'mockup-1',
+			smart_objects: [{ uuid: 'so-1', asset: { ...psdArtwork, remove_background: true } }],
+		});
+	});
+
+	await t.test('render omits remove_background when it is off', async () => {
+		const { calls } = await runOperation({
+			operation: 'render',
+			parameters: psdParameters({ removeBackground: false }),
+		});
+
+		assert.deepEqual(calls[0].options.body.smart_objects, [{ uuid: 'so-1', asset: psdArtwork }]);
+	});
+
+	await t.test('render2DMockup forwards remove_background on the print area', async () => {
+		const { calls } = await runOperation({
+			operation: 'render2DMockup',
+			parameters: {
+				twoDMockupUuid: MOCKUP_ID,
+				'twoDRenderPrintAreas.items': [
+					{
+						uuid: 'print-area-1',
+						artworkSource: 'url',
+						artworkUrl: psdArtwork.url,
+						removeBackground: true,
+					},
+				],
+				twoDExportOptions: {},
+			},
+		});
+
+		assert.deepEqual(calls[0].options.body, {
+			print_areas: [
+				{ uuid: 'print-area-1', artwork_url: psdArtwork.url, remove_background: true },
+			],
+		});
+	});
 });
 
 test('the trigger is packaged and its helper verifies the exact signed payload', () => {

@@ -218,7 +218,7 @@ export class SudoMock implements INodeType {
 						name: 'Remove Background',
 						value: 'removeBackground',
 						description:
-							'Remove the background from an image and get a permanent transparent-PNG cutout URL. Costs 25 credits; auto-refunded on failure.',
+							'Remove the background from an image and get a transparent-PNG cutout through a signed URL valid for 7 days. The cutout remains stored. Costs 25 credits; auto-refunded on failure.',
 						action: 'Remove an image background',
 					},
 					{

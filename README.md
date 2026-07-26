@@ -31,7 +31,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 - **Render Mockup**: Generate mockups with artwork, personalized text, or both. Text overrides support styled segments, fonts, size, color, stroke color, and overflow, shrink, or clip fitting. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
 - **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Choose a supported duration, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
-- **Remove Background**: Isolate the subject of an image onto a transparent background and get a permanent PNG cutout URL, ready to reuse as render artwork. Costs 25 credits, refunded automatically if processing fails. The same cleanup is available inline on both render operations with the per-artwork **Remove Background** toggle.
+- **Remove Background**: Isolate the subject of an image onto a transparent background. The cutout remains stored, and the returned signed PNG URL is valid for 7 days. Costs 25 credits, refunded automatically if processing fails. The same cleanup is available inline on both render operations with the per-artwork **Remove Background** toggle.
 
 ### Fonts and Order Artwork
 
@@ -288,7 +288,7 @@ Export Options:
 
 ### Remove Background
 
-Isolate the subject of an image onto a transparent background and get a permanent PNG cutout URL.
+Isolate the subject of an image onto a transparent background. The cutout remains stored, and the returned signed PNG URL is valid for 7 days.
 
 **Parameters:**
 
@@ -314,7 +314,7 @@ Image URL: https://cdn.example.com/product-photo.jpg
 }
 ```
 
-The returned URL is permanent and can be fed straight into **Render Mockup** or **2D: Render Mockup** as artwork. Costs 25 credits per image, refunded automatically if processing fails. To clean artwork as part of a render instead, use the per-artwork **Remove Background** toggle on either render operation.
+The returned signed URL is valid for 7 days and can be fed straight into **Render Mockup** or **2D: Render Mockup** as artwork during that window. The cutout remains stored. Processing costs 25 credits per image and is refunded automatically if it fails. To clean artwork as part of a render instead, use the per-artwork **Remove Background** toggle on either render operation.
 
 ---
 

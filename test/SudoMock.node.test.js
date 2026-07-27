@@ -112,6 +112,36 @@ test('2D operations are well formed without removing existing operations', () =>
 	}
 });
 
+test('2D public UI exposes exact render identifiers and allows backend-authoritative clearing', () => {
+	const properties = new SudoMock().description.properties;
+	const renderTargets = properties.find((property) => property.name === 'twoDRenderPrintAreas');
+	const renderFields = renderTargets.options.find((option) => option.name === 'items').values;
+	const targetType = renderFields.find((field) => field.name === 'targetType');
+	const savedUuid = renderFields.find((field) => field.name === 'uuid');
+	const fullSurfaceUuid = renderFields.find((field) => field.name === 'surfaceUuid');
+	const adjustments = renderFields.find((field) => field.name === 'adjustments');
+	const setPrintAreas = properties.find((property) => property.name === 'twoDSetPrintAreas');
+
+	assert.deepEqual(
+		targetType.options.map((option) => option.value),
+		['savedPrintArea', 'fullSurface'],
+	);
+	assert.deepEqual(savedUuid.displayOptions.show.targetType, ['savedPrintArea']);
+	assert.deepEqual(fullSurfaceUuid.displayOptions.show.targetType, ['fullSurface']);
+	assert.deepEqual(
+		adjustments.options.map((option) => option.name),
+		['brightness', 'contrast', 'opacity', 'saturation', 'vibrance', 'blur', 'blend_mode'],
+	);
+	assert.match(renderTargets.description, /exactly one/i);
+	assert.match(setPrintAreas.description, /empty list/i);
+	for (const name of ['twoDListLimit', 'twoDListOffset', 'twoDListCustomizableOnly']) {
+		assert.deepEqual(
+			properties.find((property) => property.name === name).displayOptions.show.operation,
+			['list2DMockups'],
+		);
+	}
+});
+
 const MOCKUP_ID = 'mockup-1';
 
 // Each case declares only the inputs and the request payload. Method and URL
@@ -174,12 +204,25 @@ const cases = [
 		operation: 'get2DMockup',
 		parameters: { twoDMockupUuid: MOCKUP_ID },
 		pathId: MOCKUP_ID,
+		response: {
+			data: {
+				quads: [{ print_area_id: 'print-area-1' }],
+				surfaces: [{ surface_uuid: 'surface-full-1', coverage: 'full' }],
+			},
+		},
 		expected: { json: true },
 	},
 	{
 		operation: 'list2DMockups',
-		parameters: {},
-		expected: { json: true },
+		parameters: {
+			twoDListLimit: 50,
+			twoDListOffset: 10,
+			twoDListCustomizableOnly: true,
+		},
+		expected: {
+			qs: { limit: 50, offset: 10, customizable_only: true },
+			json: true,
+		},
 	},
 	{
 		operation: 'set2DPrintAreas',
@@ -216,17 +259,38 @@ const cases = [
 		},
 	},
 	{
+		name: 'set2DPrintAreas with no saved areas',
+		operation: 'set2DPrintAreas',
+		parameters: {
+			twoDMockupUuid: MOCKUP_ID,
+			'twoDSetPrintAreas.items': [],
+		},
+		pathId: MOCKUP_ID,
+		expected: {
+			body: { print_areas: [] },
+			json: true,
+		},
+	},
+	{
 		operation: 'render2DMockup',
 		parameters: {
 			twoDMockupUuid: MOCKUP_ID,
 			twoDRenderIsAsync: true,
 			'twoDRenderPrintAreas.items': [
 				{
+					targetType: 'savedPrintArea',
 					uuid: 'print-area-1',
 					artworkSource: 'base64',
 					base64: 'aW1hZ2U=',
 					color: '#FF0000',
-					adjustments: { brightness: 5, blend_mode: 'multiply' },
+					adjustments: {
+						brightness: 5,
+						blend_mode: 'multiply',
+						warp_strength: 2,
+						edge_softness: 10,
+						edge_expand: 10,
+						texture_strength: 100,
+					},
 					placement: { position: 'center', coverage: 70 },
 				},
 			],
@@ -267,7 +331,9 @@ const cases = [
 			twoDMockupUuid: MOCKUP_ID,
 			'twoDRenderPrintAreas.items': [
 				{
+					targetType: 'savedPrintArea',
 					uuid: 'print-area-1',
+					surfaceUuid: 'stale-full-surface',
 					artworkSource: 'url',
 					artworkUrl: 'https://cdn.example.com/design.png',
 				},
@@ -288,6 +354,35 @@ const cases = [
 		},
 	},
 	{
+		name: 'render2DMockup on a full surface',
+		operation: 'render2DMockup',
+		parameters: {
+			twoDMockupUuid: MOCKUP_ID,
+			'twoDRenderPrintAreas.items': [
+				{
+					targetType: 'fullSurface',
+					uuid: 'stale-saved-area',
+					surfaceUuid: 'surface-full-1',
+					artworkSource: 'url',
+					artworkUrl: 'https://cdn.example.com/design.png',
+				},
+			],
+			twoDExportOptions: {},
+		},
+		pathId: MOCKUP_ID,
+		expected: {
+			body: {
+				print_areas: [
+					{
+						surface_uuid: 'surface-full-1',
+						artwork_url: 'https://cdn.example.com/design.png',
+					},
+				],
+			},
+			json: true,
+		},
+	},
+	{
 		operation: 'delete2DMockup',
 		parameters: { twoDMockupUuid: MOCKUP_ID },
 		pathId: MOCKUP_ID,
@@ -297,7 +392,7 @@ const cases = [
 
 function runOperation(testCase) {
 	const calls = [];
-	const response = { operation: testCase.operation };
+	const response = testCase.response ?? { operation: testCase.operation };
 	const context = {
 		getInputData: () => [{ json: {} }],
 		getNodeParameter: (name, _index, fallback) => {
@@ -558,11 +653,19 @@ test('text layers, fonts, artwork deletion, and background removal use the shipp
 // The flag is a paid surcharge, so it must reach the API only when the user
 // asked for it, and it must never be sent as an explicit false.
 test('background removal flags travel on both render paths only when enabled', async (t) => {
-	const psdArtwork = { url: 'https://cdn.example.com/design.png', fit: 'cover' };
+	const psdArtwork = {
+		url: 'https://cdn.example.com/design.png',
+		fit: 'cover',
+	};
 	const psdParameters = (additionalOptions) => ({
 		mockupUuid: 'mockup-1',
 		'smartObjects.items': [
-			{ uuid: 'so-1', assetUrl: psdArtwork.url, fit: psdArtwork.fit, additionalOptions },
+			{
+				uuid: 'so-1',
+				assetUrl: psdArtwork.url,
+				fit: psdArtwork.fit,
+				additionalOptions,
+			},
 		],
 		textLayers: '[]',
 		exportOptions: {},
@@ -608,7 +711,11 @@ test('background removal flags travel on both render paths only when enabled', a
 
 		assert.deepEqual(calls[0].options.body, {
 			print_areas: [
-				{ uuid: 'print-area-1', artwork_url: psdArtwork.url, remove_background: true },
+				{
+					uuid: 'print-area-1',
+					artwork_url: psdArtwork.url,
+					remove_background: true,
+				},
 			],
 		});
 	});

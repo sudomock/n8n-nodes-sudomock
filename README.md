@@ -341,11 +341,11 @@ Deletion confirmation
 
 Create, prepare, render, and manage reusable mockups from product images without a PSD.
 
-1. **2D: Create Mockup** accepts a public `source_url` or `source_base64`, plus an optional name. Creation is asynchronous and returns the 202 response with `mockup_uuid`, `status_url`, and job details unchanged. Use the job ID with **Get Job** when needed.
-2. **2D: Get Mockup** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`; the ready response includes each print area's UUID and points.
-3. **2D: List Mockups** returns your 2D mockups.
-4. **2D: Set Print Areas** accepts one or more print areas. Each print area is a quad with four `[x, y]` coordinate pairs.
-5. **2D: Render Mockup** accepts the mockup UUID and one or more ready print area UUIDs. Each print area includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, adjustments, and placement. Export options support PNG or JPG at 1024, 2048, or 4096 pixels, plus quality and DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
+1. **2D: Create Mockup** accepts a public `source_url` or `source_base64`, plus an optional name. By default it waits and returns the ready mockup detail unchanged. Enable **Run Asynchronously** to receive a 202 job with `job_id` and `status_url`, then use **Get Job** when needed.
+2. **2D: Get Mockup** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`. The ready response keeps saved areas in `data.quads` (addressed by `print_area_id`) and full surfaces in `data.surfaces` (addressed by `surface_uuid`).
+3. **2D: List Mockups** returns your 2D mockups with limit, offset, and shopper-customizable filtering.
+4. **2D: Set Print Areas** replaces saved areas with quads made from four `[x, y]` coordinate pairs. It can also send an empty list; the API remains authoritative and accepts that only when the mockup can remain renderable without saved areas.
+5. **2D: Render Mockup** accepts the mockup UUID and one or more ready render targets. Each target sends exactly one identifier: `uuid` for a saved area or `surface_uuid` for a full surface. Each target also includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, public adjustments, and placement. Export options support PNG, JPG, or WebP from 100 to 10000 pixels, plus quality and optional DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
 6. **2D: Delete Mockup** deletes the selected 2D mockup.
 
 Create must reach `ready` through **2D: Get Mockup** before **2D: Render Mockup**.
@@ -364,7 +364,7 @@ Turn a mockup (or an existing image URL) into a short product video. Always asyn
 - **Image URL** (required in Animate Image URL mode): public HTTPS image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.avif`)
 - **Webhook URL** (optional): one-off HTTPS URL notified when this job finishes
 - **Video Options**:
-  - **Duration (Seconds)**: clip length (default 4; must be an allowed duration for the chosen model — the default model `veo-3.1-fast` allows 4, 6, or 8; max 15)
+  - **Duration (Seconds)**: clip length (default 4; must be an allowed duration for the chosen model — the default model `veo-3.1-fast` allows 4 or 6; max 15)
   - **Audio**: include a generated audio track (default false; may cost extra credits depending on model)
   - **Motion**: `ambient` (default) or `showcase`
   - **Advanced Model**: optional override pinning a roster model (`veo-3.1-fast`, `kling-v3-pro`, `kling-2.6-pro`, `seedance-2.0`, `wan-2.5`); leave empty to auto-pick by plan tier

@@ -26,6 +26,19 @@ interface TwoDPrintAreaPoints {
 	point4Y: number;
 }
 
+interface TwoDRenderTarget {
+	targetType?: 'savedPrintArea' | 'fullSurface';
+	uuid?: string;
+	surfaceUuid?: string;
+	artworkSource: string;
+	artworkUrl?: string;
+	base64?: string;
+	removeBackground?: boolean;
+	color?: string;
+	adjustments?: IDataObject;
+	placement?: IDataObject;
+}
+
 function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[]) {
 	return printAreas.map((area) => ({
 		points: [
@@ -120,7 +133,7 @@ export class SudoMock implements INodeType {
 					{
 						name: '2D: Get Mockup',
 						value: 'get2DMockup',
-						description: 'Get the status and print areas of a 2D mockup',
+						description: 'Get the status and addressable render targets of a 2D mockup',
 						action: 'Get a 2D mockup',
 					},
 					{
@@ -132,7 +145,7 @@ export class SudoMock implements INodeType {
 					{
 						name: '2D: Set Print Areas',
 						value: 'set2DPrintAreas',
-						description: 'Define print area quads for a 2D mockup',
+						description: 'Replace or clear the saved print area quads for a 2D mockup',
 						action: 'Set 2D print areas',
 					},
 					{
@@ -393,6 +406,32 @@ export class SudoMock implements INodeType {
 				description: 'Whether to queue creation and return a job_id (kind: 2d_create) immediately',
 			},
 			{
+				displayName: 'Limit',
+				name: 'twoDListLimit',
+				type: 'number',
+				typeOptions: { minValue: 1, maxValue: 100 },
+				displayOptions: { show: { operation: ['list2DMockups'] } },
+				default: 20,
+				description: 'Number of 2D mockups to return from 1 to 100',
+			},
+			{
+				displayName: 'Offset',
+				name: 'twoDListOffset',
+				type: 'number',
+				typeOptions: { minValue: 0 },
+				displayOptions: { show: { operation: ['list2DMockups'] } },
+				default: 0,
+				description: 'Number of 2D mockups to skip',
+			},
+			{
+				displayName: 'Customizable Only',
+				name: 'twoDListCustomizableOnly',
+				type: 'boolean',
+				displayOptions: { show: { operation: ['list2DMockups'] } },
+				default: false,
+				description: 'Whether to return only mockups ready for shopper customization',
+			},
+			{
 				displayName: 'Mockup UUID',
 				name: 'twoDMockupUuid',
 				type: 'string',
@@ -420,7 +459,8 @@ export class SudoMock implements INodeType {
 				},
 				default: {},
 				placeholder: 'Add Print Area',
-				description: "Optional during creation; required when replacing a mockup's print areas",
+				description:
+					'Optional during creation. Set Print Areas may send an empty list; the API decides whether the mockup can remain renderable without saved areas.',
 				options: [
 					{
 						name: 'items',
@@ -495,7 +535,7 @@ export class SudoMock implements INodeType {
 				],
 			},
 			{
-				displayName: 'Print Areas',
+				displayName: 'Render Targets',
 				name: 'twoDRenderPrintAreas',
 				type: 'fixedCollection',
 				typeOptions: {
@@ -508,20 +548,58 @@ export class SudoMock implements INodeType {
 					},
 				},
 				default: {},
-				placeholder: 'Add Print Area',
-				description: 'Artwork and options for each saved print area',
+				placeholder: 'Add Render Target',
+				description:
+					'Artwork and options for each target. Select exactly one saved print area UUID or full-surface UUID.',
 				options: [
 					{
 						name: 'items',
-						displayName: 'Print Area',
+						displayName: 'Render Target',
 						values: [
 							{
-								displayName: 'Print Area UUID',
+								displayName: 'Target Type',
+								name: 'targetType',
+								type: 'options',
+								options: [
+									{
+										name: 'Saved Print Area',
+										value: 'savedPrintArea',
+										description: 'Target a saved print area returned in data.quads',
+									},
+									{
+										name: 'Full Surface',
+										value: 'fullSurface',
+										description: 'Target a full surface returned in data.surfaces',
+									},
+								],
+								default: 'savedPrintArea',
+								description: 'Whether this artwork targets a saved area or a full surface',
+							},
+							{
+								displayName: 'Saved Print Area UUID',
 								name: 'uuid',
 								type: 'string',
 								required: true,
+								displayOptions: {
+									show: {
+										targetType: ['savedPrintArea'],
+									},
+								},
 								default: '',
-								description: 'UUID returned by 2D: Get Mockup when status is ready',
+								description: 'The print_area_id returned in data.quads by 2D: Get Mockup',
+							},
+							{
+								displayName: 'Full-Surface UUID',
+								name: 'surfaceUuid',
+								type: 'string',
+								required: true,
+								displayOptions: {
+									show: {
+										targetType: ['fullSurface'],
+									},
+								},
+								default: '',
+								description: 'The surface_uuid returned in data.surfaces by 2D: Get Mockup',
 							},
 							{
 								displayName: 'Artwork Type',
@@ -651,30 +729,6 @@ export class SudoMock implements INodeType {
 										],
 										default: 'multiply',
 										description: 'Artwork blend mode for the product surface',
-									},
-									{
-										displayName: 'Warp Strength',
-										name: 'warp_strength',
-										type: 'number',
-										typeOptions: { minValue: 0, maxValue: 2 },
-										default: 1.5,
-										description: 'Surface warp strength from 0 to 2',
-									},
-									{
-										displayName: 'Edge Expand',
-										name: 'edge_expand',
-										type: 'number',
-										typeOptions: { minValue: 0, maxValue: 50 },
-										default: 0,
-										description: 'Artwork edge expansion from 0 to 50',
-									},
-									{
-										displayName: 'Texture Strength',
-										name: 'texture_strength',
-										type: 'number',
-										typeOptions: { minValue: 0, maxValue: 100 },
-										default: 0,
-										description: 'Product texture strength from 0 to 100',
 									},
 								],
 							},
@@ -1391,7 +1445,7 @@ export class SudoMock implements INodeType {
 						},
 						default: 4,
 						description:
-							"Length of the clip in seconds. Must be one of the chosen model's allowed durations (the default model veo-3.1-fast allows 4, 6, or 8). Longer clips cost more credits.",
+							"Length of the clip in seconds. Must be one of the chosen model's allowed durations (the default model veo-3.1-fast allows 4 or 6). Longer clips cost more credits.",
 					},
 					{
 						displayName: 'Audio',
@@ -2179,12 +2233,24 @@ export class SudoMock implements INodeType {
 				// 2D: LIST MOCKUPS
 				// ========================================
 				else if (operation === 'list2DMockups') {
+					const limit = this.getNodeParameter('twoDListLimit', i, 20) as number;
+					const offset = this.getNodeParameter('twoDListOffset', i, 0) as number;
+					const customizableOnly = this.getNodeParameter(
+						'twoDListCustomizableOnly',
+						i,
+						false,
+					) as boolean;
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
 						{
 							method: 'GET',
 							url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
+							qs: {
+								limit,
+								offset,
+								customizable_only: customizableOnly,
+							},
 							json: true,
 						},
 					);
@@ -2204,9 +2270,6 @@ export class SudoMock implements INodeType {
 						i,
 						[],
 					) as TwoDPrintAreaPoints[];
-					if (printAreas.length === 0) {
-						throw new NodeOperationError(this.getNode(), 'Add at least one print area');
-					}
 					const body = { print_areas: format2DPrintAreas(printAreas) };
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
@@ -2233,18 +2296,20 @@ export class SudoMock implements INodeType {
 						'twoDRenderPrintAreas.items',
 						i,
 						[],
-					) as Array<{
-						uuid: string;
-						artworkSource: string;
-						artworkUrl?: string;
-						base64?: string;
-						removeBackground?: boolean;
-						color?: string;
-						adjustments?: IDataObject;
-						placement?: IDataObject;
-					}>;
+					) as TwoDRenderTarget[];
 					const printAreas = printAreasData.map((area) => {
-						const printArea: Record<string, unknown> = { uuid: area.uuid };
+						const targetType = area.targetType ?? 'savedPrintArea';
+						const targetValue = targetType === 'fullSurface' ? area.surfaceUuid : area.uuid;
+						if (!targetValue) {
+							throw new NodeOperationError(
+								this.getNode(),
+								targetType === 'fullSurface'
+									? 'Full-Surface UUID is required for a full-surface render target'
+									: 'Saved Print Area UUID is required for a saved print-area render target',
+							);
+						}
+						const printArea: Record<string, unknown> =
+							targetType === 'fullSurface' ? { surface_uuid: targetValue } : { uuid: targetValue };
 						if (area.artworkSource === 'base64') {
 							printArea.base64 = area.base64;
 						} else {
@@ -2257,7 +2322,19 @@ export class SudoMock implements INodeType {
 							printArea.color = area.color;
 						}
 						if (area.adjustments && Object.keys(area.adjustments).length > 0) {
-							printArea.adjustments = area.adjustments;
+							const { brightness, contrast, opacity, saturation, vibrance, blur, blend_mode } =
+								area.adjustments;
+							printArea.adjustments = Object.fromEntries(
+								Object.entries({
+									brightness,
+									contrast,
+									opacity,
+									saturation,
+									vibrance,
+									blur,
+									blend_mode,
+								}).filter(([, value]) => value !== undefined),
+							);
 						}
 						if (area.placement && Object.keys(area.placement).length > 0) {
 							printArea.placement = area.placement;
@@ -2685,7 +2762,11 @@ export class SudoMock implements INodeType {
 							'videoSmartObjects.items',
 							i,
 							[],
-						) as Array<{ uuid: string; assetUrl: string; fit: string }>;
+						) as Array<{
+							uuid: string;
+							assetUrl: string;
+							fit: string;
+						}>;
 						body.mockup_uuid = mockupUuid;
 						body.smart_objects = smartObjectsData.map((so) => ({
 							uuid: so.uuid,
@@ -3324,7 +3405,9 @@ export class SudoMock implements INodeType {
 				throw new NodeOperationError(
 					this.getNode(),
 					error instanceof Error ? error : new Error('Unknown error'),
-					{ itemIndex: i },
+					{
+						itemIndex: i,
+					},
 				);
 			}
 		}

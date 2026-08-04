@@ -779,11 +779,22 @@ export class SudoMock implements INodeType {
 										description: 'How the artwork fits within the print area',
 									},
 									{
-										displayName: 'Scale',
-										name: 'scale',
+										displayName: 'Width',
+										name: 'width',
 										type: 'number',
-										default: 1,
-										description: 'Artwork scale multiplier that overrides coverage',
+										typeOptions: { minValue: 1, maxValue: 30000 },
+										default: 1000,
+										description:
+											'Artwork width in print-area pixels. Add Height alongside it; the pair overrides Coverage and Fit. Width and Height are independent, so any aspect ratio is allowed.',
+									},
+									{
+										displayName: 'Height',
+										name: 'height',
+										type: 'number',
+										typeOptions: { minValue: 1, maxValue: 30000 },
+										default: 1000,
+										description:
+											'Artwork height in print-area pixels. Add Width alongside it. Adding only one of the two is rejected rather than silently completed, so the aspect ratio is never guessed for you.',
 									},
 									{
 										displayName: 'Rotation',

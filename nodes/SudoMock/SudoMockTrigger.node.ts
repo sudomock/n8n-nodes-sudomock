@@ -5,7 +5,9 @@ import {
 	INodeTypeDescription,
 	IWebhookFunctions,
 	IWebhookResponseData,
+	JsonObject,
 	NodeConnectionTypes,
+	NodeApiError,
 } from 'n8n-workflow';
 
 import { verifyWebhookSignature, WEBHOOK_EVENT_OPTIONS } from './webhooks';
@@ -28,6 +30,8 @@ export class SudoMockTrigger implements INodeType {
 		icon: 'file:sudomock.svg',
 		group: ['trigger'],
 		version: 1,
+		subtitle:
+			'={{$parameter["events"].length > 0 ? $parameter["events"].join(", ") : "All events"}}',
 		description: 'Start a workflow when a SudoMock job or test event finishes',
 		defaults: { name: 'SudoMock Trigger' },
 		inputs: [],
@@ -67,8 +71,10 @@ export class SudoMockTrigger implements INodeType {
 						json: true,
 					});
 					return true;
-				} catch (error: any) {
-					if (Number(error.statusCode) !== 404) throw error;
+				} catch (error) {
+					if (Number((error as JsonObject).statusCode) !== 404) {
+						throw new NodeApiError(this.getNode(), error as JsonObject);
+					}
 					delete data.webhookId;
 					delete data.webhookSecret;
 					return false;
@@ -110,8 +116,8 @@ export class SudoMockTrigger implements INodeType {
 						method: 'DELETE',
 						url: `${API_URL}/${data.webhookId as string}`,
 					});
-				} catch {
-					return false;
+				} catch (error) {
+					throw new NodeApiError(this.getNode(), error as JsonObject);
 				}
 
 				delete data.webhookId;

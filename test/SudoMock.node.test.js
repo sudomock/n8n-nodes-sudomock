@@ -771,3 +771,49 @@ test('the built node contains no retired or internal API paths', () => {
 		assert.ok(allowedShapes.has(url), `unexpected 2D URL in the built node: ${url}`);
 	}
 });
+
+test('the POD demo is runnable and follows the n8n template gates', () => {
+	const workflow = JSON.parse(
+		fs.readFileSync(path.join(__dirname, '..', 'demos', 'pod-product-creator-workflow.json')),
+	);
+	const byName = new Map(workflow.nodes.map((node) => [node.name, node]));
+
+	assert.equal(byName.size, workflow.nodes.length, 'node names must be unique');
+	assert.equal(new Set(workflow.nodes.map((node) => node.id)).size, workflow.nodes.length);
+	assert.equal(workflow.meta, undefined, 'template exports must not retain an instance id');
+	assert.equal(workflow.versionId, undefined, 'template exports must not retain a workflow id');
+	assert.ok(!workflow.nodes.some((node) => node.credentials), 'credentials must not ship');
+
+	const guide = byName.get('Workflow guide').parameters.content;
+	assert.match(guide, /Self-hosted n8n only/);
+	assert.match(guide, /Anyone with the link/);
+	assert.match(guide, /Workflow Settings/);
+
+	assert.deepEqual(
+		workflow.connections['Workflow Settings'].main[0].map(({ node }) => node).sort(),
+		['List SudoMock templates', 'List design files'],
+	);
+	assert.equal(byName.get('List SudoMock templates').parameters.returnAll, true);
+	const driveSearch = byName.get('List design files').parameters;
+	assert.equal(driveSearch.resource, 'fileFolder');
+	assert.equal(driveSearch.operation, 'search');
+	assert.equal(driveSearch.filter.whatToSearch, 'files');
+	assert.equal(driveSearch.filter.folderId.value, '={{ $json.designFolderId }}');
+	assert.equal(byName.get('Create design and template pairs').parameters.combineBy, 'combineAll');
+	assert.equal(byName.get('Render product mockup').continueOnFail, true);
+	assert.equal(byName.get('Convert results to CSV').parameters.operation, 'csv');
+
+	const designCode = byName.get('Prepare public design URLs').parameters.jsCode;
+	assert.match(designCode, /drive\.google\.com\/uc\?export=download&id=/);
+	assert.ok(!designCode.includes('webViewLink'));
+	assert.match(byName.get('Email batch summary').parameters.subject, /Prepare CSV rows/);
+
+	for (const node of workflow.nodes.filter((candidate) => candidate.type === 'n8n-nodes-base.code')) {
+		assert.doesNotThrow(() => new Function(node.parameters.jsCode), `${node.name} has invalid JS`);
+	}
+	for (const outputs of Object.values(workflow.connections)) {
+		for (const output of outputs.main) {
+			for (const edge of output) assert.ok(byName.has(edge.node), `missing target ${edge.node}`);
+		}
+	}
+});

@@ -50,9 +50,11 @@ function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[]) {
 	}));
 }
 
-function parseJsonArray(value: unknown, name: string): unknown[] {
+function parseJsonArray(this: IExecuteFunctions, value: unknown, name: string): unknown[] {
 	const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-	if (!Array.isArray(parsed)) throw new Error(`${name} must be a JSON array`);
+	if (!Array.isArray(parsed)) {
+		throw new NodeOperationError(this.getNode(), `${name} must be a JSON array`);
+	}
 	return parsed;
 }
 
@@ -131,6 +133,12 @@ export class SudoMock implements INodeType {
 						action: 'Create a 2D mockup',
 					},
 					{
+						name: '2D: Delete Mockup',
+						value: 'delete2DMockup',
+						description: 'Delete a 2D mockup',
+						action: 'Delete a 2D mockup',
+					},
+					{
 						name: '2D: Get Mockup',
 						value: 'get2DMockup',
 						description: 'Get the status and addressable render targets of a 2D mockup',
@@ -143,22 +151,16 @@ export class SudoMock implements INodeType {
 						action: 'List 2D mockups',
 					},
 					{
-						name: '2D: Set Print Areas',
-						value: 'set2DPrintAreas',
-						description: 'Replace or clear the saved print area quads for a 2D mockup',
-						action: 'Set 2D print areas',
-					},
-					{
 						name: '2D: Render Mockup',
 						value: 'render2DMockup',
 						description: 'Render artwork on a 2D mockup for 5 credits',
 						action: 'Render a 2D mockup',
 					},
 					{
-						name: '2D: Delete Mockup',
-						value: 'delete2DMockup',
-						description: 'Delete a 2D mockup',
-						action: 'Delete a 2D mockup',
+						name: '2D: Set Print Areas',
+						value: 'set2DPrintAreas',
+						description: 'Replace or clear the saved print area quads for a 2D mockup',
+						action: 'Set 2D print areas',
 					},
 					{
 						name: 'Artwork: Delete Stored Files',
@@ -203,18 +205,6 @@ export class SudoMock implements INodeType {
 						action: 'Get account information',
 					},
 					{
-						name: 'Get Mockup',
-						value: 'getMockup',
-						description: 'Get details of a specific mockup template',
-						action: 'Get mockup details',
-					},
-					{
-						name: 'List Mockups',
-						value: 'listMockups',
-						description: 'List all your uploaded mockup templates',
-						action: 'List mockups',
-					},
-					{
 						name: 'Get Job',
 						value: 'getJob',
 						description:
@@ -222,10 +212,22 @@ export class SudoMock implements INodeType {
 						action: 'Get a job',
 					},
 					{
+						name: 'Get Mockup',
+						value: 'getMockup',
+						description: 'Get details of a specific mockup template',
+						action: 'Get mockup details',
+					},
+					{
 						name: 'List Jobs',
 						value: 'listJobs',
 						description: 'List your async render, upload, and video jobs',
 						action: 'List jobs',
+					},
+					{
+						name: 'List Mockups',
+						value: 'listMockups',
+						description: 'List all your uploaded mockup templates',
+						action: 'List mockups',
 					},
 					{
 						name: 'Remove Background',
@@ -411,7 +413,7 @@ export class SudoMock implements INodeType {
 				type: 'number',
 				typeOptions: { minValue: 1, maxValue: 100 },
 				displayOptions: { show: { operation: ['list2DMockups'] } },
-				default: 20,
+				default: 50,
 				description: 'Number of 2D mockups to return from 1 to 100',
 			},
 			{
@@ -557,49 +559,73 @@ export class SudoMock implements INodeType {
 						displayName: 'Render Target',
 						values: [
 							{
-								displayName: 'Target Type',
-								name: 'targetType',
-								type: 'options',
+								displayName: 'Adjustments',
+								name: 'adjustments',
+								type: 'collection',
+								placeholder: 'Add Adjustment',
+								default: {},
+								description: 'Artwork appearance settings for this print area',
 								options: [
 									{
-										name: 'Saved Print Area',
-										value: 'savedPrintArea',
-										description: 'Target a saved print area returned in data.quads',
+										displayName: 'Blend Mode',
+										name: 'blend_mode',
+										type: 'options',
+										options: [
+											{ name: 'Multiply', value: 'multiply' },
+											{ name: 'Normal', value: 'normal' },
+										],
+										default: 'multiply',
+										description: 'Artwork blend mode for the product surface',
 									},
 									{
-										name: 'Full Surface',
-										value: 'fullSurface',
-										description: 'Target a full surface returned in data.surfaces',
+										displayName: 'Blur',
+										name: 'blur',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 100 },
+										default: 0,
+										description: 'Gaussian blur amount from 0 to 100',
+									},
+									{
+										displayName: 'Brightness',
+										name: 'brightness',
+										type: 'number',
+										typeOptions: { minValue: -150, maxValue: 150 },
+										default: 0,
+										description: 'Brightness adjustment from -150 to 150',
+									},
+									{
+										displayName: 'Contrast',
+										name: 'contrast',
+										type: 'number',
+										typeOptions: { minValue: -100, maxValue: 100 },
+										default: 0,
+										description: 'Contrast adjustment from -100 to 100',
+									},
+									{
+										displayName: 'Opacity',
+										name: 'opacity',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 100 },
+										default: 100,
+										description: 'Artwork opacity from 0 to 100',
+									},
+									{
+										displayName: 'Saturation',
+										name: 'saturation',
+										type: 'number',
+										typeOptions: { minValue: -100, maxValue: 100 },
+										default: 0,
+										description: 'Saturation adjustment from -100 to 100',
+									},
+									{
+										displayName: 'Vibrance',
+										name: 'vibrance',
+										type: 'number',
+										typeOptions: { minValue: -100, maxValue: 100 },
+										default: 0,
+										description: 'Vibrance adjustment from -100 to 100',
 									},
 								],
-								default: 'savedPrintArea',
-								description: 'Whether this artwork targets a saved area or a full surface',
-							},
-							{
-								displayName: 'Saved Print Area UUID',
-								name: 'uuid',
-								type: 'string',
-								required: true,
-								displayOptions: {
-									show: {
-										targetType: ['savedPrintArea'],
-									},
-								},
-								default: '',
-								description: 'The print_area_id returned in data.quads by 2D: Get Mockup',
-							},
-							{
-								displayName: 'Full-Surface UUID',
-								name: 'surfaceUuid',
-								type: 'string',
-								required: true,
-								displayOptions: {
-									show: {
-										targetType: ['fullSurface'],
-									},
-								},
-								default: '',
-								description: 'The surface_uuid returned in data.surfaces by 2D: Get Mockup',
 							},
 							{
 								displayName: 'Artwork Type',
@@ -648,89 +674,25 @@ export class SudoMock implements INodeType {
 								description: 'Base64 artwork data for this print area',
 							},
 							{
-								displayName: 'Remove Background',
-								name: 'removeBackground',
-								type: 'boolean',
-								default: false,
-								description:
-									'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
-							},
-							{
 								displayName: 'Color',
 								name: 'color',
-								type: 'string',
+								type: 'color',
 								default: '',
 								placeholder: '#FF0000',
 								description: 'Optional hex color fill or overlay',
 							},
 							{
-								displayName: 'Adjustments',
-								name: 'adjustments',
-								type: 'collection',
-								placeholder: 'Add Adjustment',
-								default: {},
-								description: 'Artwork appearance settings for this print area',
-								options: [
-									{
-										displayName: 'Brightness',
-										name: 'brightness',
-										type: 'number',
-										typeOptions: { minValue: -150, maxValue: 150 },
-										default: 0,
-										description: 'Brightness adjustment from -150 to 150',
+								displayName: 'Full-Surface UUID',
+								name: 'surfaceUuid',
+								type: 'string',
+								required: true,
+								displayOptions: {
+									show: {
+										targetType: ['fullSurface'],
 									},
-									{
-										displayName: 'Contrast',
-										name: 'contrast',
-										type: 'number',
-										typeOptions: { minValue: -100, maxValue: 100 },
-										default: 0,
-										description: 'Contrast adjustment from -100 to 100',
-									},
-									{
-										displayName: 'Opacity',
-										name: 'opacity',
-										type: 'number',
-										typeOptions: { minValue: 0, maxValue: 100 },
-										default: 100,
-										description: 'Artwork opacity from 0 to 100',
-									},
-									{
-										displayName: 'Saturation',
-										name: 'saturation',
-										type: 'number',
-										typeOptions: { minValue: -100, maxValue: 100 },
-										default: 0,
-										description: 'Saturation adjustment from -100 to 100',
-									},
-									{
-										displayName: 'Vibrance',
-										name: 'vibrance',
-										type: 'number',
-										typeOptions: { minValue: -100, maxValue: 100 },
-										default: 0,
-										description: 'Vibrance adjustment from -100 to 100',
-									},
-									{
-										displayName: 'Blur',
-										name: 'blur',
-										type: 'number',
-										typeOptions: { minValue: 0, maxValue: 100 },
-										default: 0,
-										description: 'Gaussian blur amount from 0 to 100',
-									},
-									{
-										displayName: 'Blend Mode',
-										name: 'blend_mode',
-										type: 'options',
-										options: [
-											{ name: 'Multiply', value: 'multiply' },
-											{ name: 'Normal', value: 'normal' },
-										],
-										default: 'multiply',
-										description: 'Artwork blend mode for the product surface',
-									},
-								],
+								},
+								default: '',
+								description: 'The surface_uuid returned in data.surfaces by 2D: Get Mockup',
 							},
 							{
 								displayName: 'Placement',
@@ -740,24 +702,6 @@ export class SudoMock implements INodeType {
 								default: {},
 								description: 'Artwork position and size settings for this print area',
 								options: [
-									{
-										displayName: 'Position',
-										name: 'position',
-										type: 'options',
-										options: [
-											{ name: 'Top Left', value: 'top_left' },
-											{ name: 'Top Center', value: 'top_center' },
-											{ name: 'Top Right', value: 'top_right' },
-											{ name: 'Center Left', value: 'center_left' },
-											{ name: 'Center', value: 'center' },
-											{ name: 'Center Right', value: 'center_right' },
-											{ name: 'Bottom Left', value: 'bottom_left' },
-											{ name: 'Bottom Center', value: 'bottom_center' },
-											{ name: 'Bottom Right', value: 'bottom_right' },
-										],
-										default: 'center',
-										description: 'Predefined artwork position in the print area',
-									},
 									{
 										displayName: 'Coverage',
 										name: 'coverage',
@@ -779,15 +723,6 @@ export class SudoMock implements INodeType {
 										description: 'How the artwork fits within the print area',
 									},
 									{
-										displayName: 'Width',
-										name: 'width',
-										type: 'number',
-										typeOptions: { minValue: 1, maxValue: 30000 },
-										default: 1000,
-										description:
-											'Artwork width in print-area pixels. Add Height alongside it; the pair overrides Coverage and Fit. Width and Height are independent, so any aspect ratio is allowed.',
-									},
-									{
 										displayName: 'Height',
 										name: 'height',
 										type: 'number',
@@ -795,13 +730,6 @@ export class SudoMock implements INodeType {
 										default: 1000,
 										description:
 											'Artwork height in print-area pixels. Add Width alongside it. Adding only one of the two is rejected rather than silently completed, so the aspect ratio is never guessed for you.',
-									},
-									{
-										displayName: 'Rotation',
-										name: 'rotation',
-										type: 'number',
-										default: 0,
-										description: 'Artwork rotation in degrees',
 									},
 									{
 										displayName: 'Offset X',
@@ -817,7 +745,81 @@ export class SudoMock implements INodeType {
 										default: 0,
 										description: 'Vertical artwork offset in pixels',
 									},
+									{
+										displayName: 'Position',
+										name: 'position',
+										type: 'options',
+										options: [
+											{ name: 'Bottom Center', value: 'bottom_center' },
+											{ name: 'Bottom Left', value: 'bottom_left' },
+											{ name: 'Bottom Right', value: 'bottom_right' },
+											{ name: 'Center', value: 'center' },
+											{ name: 'Center Left', value: 'center_left' },
+											{ name: 'Center Right', value: 'center_right' },
+											{ name: 'Top Center', value: 'top_center' },
+											{ name: 'Top Left', value: 'top_left' },
+											{ name: 'Top Right', value: 'top_right' },
+										],
+										default: 'center',
+										description: 'Predefined artwork position in the print area',
+									},
+									{
+										displayName: 'Rotation',
+										name: 'rotation',
+										type: 'number',
+										default: 0,
+										description: 'Artwork rotation in degrees',
+									},
+									{
+										displayName: 'Width',
+										name: 'width',
+										type: 'number',
+										typeOptions: { minValue: 1, maxValue: 30000 },
+										default: 1000,
+										description:
+											'Artwork width in print-area pixels. Add Height alongside it; the pair overrides Coverage and Fit. Width and Height are independent, so any aspect ratio is allowed.',
+									},
 								],
+							},
+							{
+								displayName: 'Remove Background',
+								name: 'removeBackground',
+								type: 'boolean',
+								default: false,
+								description:
+									'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
+							},
+							{
+								displayName: 'Saved Print Area UUID',
+								name: 'uuid',
+								type: 'string',
+								required: true,
+								displayOptions: {
+									show: {
+										targetType: ['savedPrintArea'],
+									},
+								},
+								default: '',
+								description: 'The print_area_id returned in data.quads by 2D: Get Mockup',
+							},
+							{
+								displayName: 'Target Type',
+								name: 'targetType',
+								type: 'options',
+								options: [
+									{
+										name: 'Saved Print Area',
+										value: 'savedPrintArea',
+										description: 'Target a saved print area returned in data.quads',
+									},
+									{
+										name: 'Full Surface',
+										value: 'fullSurface',
+										description: 'Target a full surface returned in data.surfaces',
+									},
+								],
+								default: 'savedPrintArea',
+								description: 'Whether this artwork targets a saved area or a full surface',
 							},
 						],
 					},
@@ -1018,23 +1020,61 @@ export class SudoMock implements INodeType {
 								default: {},
 								options: [
 									{
-										displayName: 'Rotation',
-										name: 'rotate',
-										type: 'number',
-										typeOptions: {
-											minValue: -360,
-											maxValue: 360,
-										},
-										default: 0,
-										description: 'Rotation angle in degrees',
-									},
-									{
 										displayName: 'Base64 Image',
 										name: 'base64',
 										type: 'string',
 										default: '',
 										description:
 											'Raw base64-encoded image bytes (no data: prefix). Alternative to Design URL; eliminates server-side download latency. If set, takes priority over the URL.',
+									},
+									{
+										displayName: 'Blur',
+										name: 'blur',
+										type: 'number',
+										typeOptions: {
+											minValue: 0,
+											maxValue: 100,
+										},
+										default: 0,
+										description: 'Gaussian blur amount (0=sharp, 100=max blur)',
+									},
+									{
+										displayName: 'Brightness',
+										name: 'brightness',
+										type: 'number',
+										typeOptions: {
+											minValue: -150,
+											maxValue: 150,
+										},
+										default: 0,
+										description: 'Brightness adjustment (-150 to 150)',
+									},
+									{
+										displayName: 'Color Blend Mode',
+										name: 'colorBlendMode',
+										type: 'options',
+										options: [
+											{ name: 'Color Burn', value: 'color-burn' },
+											{ name: 'Color Dodge', value: 'color-dodge' },
+											{ name: 'Darken', value: 'darken' },
+											{ name: 'Hard Light', value: 'hard-light' },
+											{ name: 'Lighten', value: 'lighten' },
+											{ name: 'Multiply', value: 'multiply' },
+											{ name: 'Normal', value: 'normal' },
+											{ name: 'Overlay', value: 'overlay' },
+											{ name: 'Screen', value: 'screen' },
+											{ name: 'Soft Light', value: 'soft-light' },
+										],
+										default: 'normal',
+										description: 'Blend mode for color overlay',
+									},
+									{
+										displayName: 'Color Overlay (Hex)',
+										name: 'colorHex',
+										type: 'color',
+										default: '',
+										placeholder: '#FF5733',
+										description: 'Apply color overlay to the design',
 									},
 									{
 										displayName: 'Content Type',
@@ -1050,15 +1090,15 @@ export class SudoMock implements INodeType {
 										description: 'MIME type of the Base64 Image. Defaults to image/png if omitted.',
 									},
 									{
-										displayName: 'Custom Width',
-										name: 'sizeWidth',
+										displayName: 'Contrast',
+										name: 'contrast',
 										type: 'number',
 										typeOptions: {
-											minValue: 1,
+											minValue: -100,
+											maxValue: 100,
 										},
 										default: 0,
-										description:
-											'Custom asset width override in pixels. 0 = use smart object bounds.',
+										description: 'Contrast adjustment (-100 to 100)',
 									},
 									{
 										displayName: 'Custom Height',
@@ -1072,75 +1112,15 @@ export class SudoMock implements INodeType {
 											'Custom asset height override in pixels. 0 = use smart object bounds.',
 									},
 									{
-										displayName: 'Position Top',
-										name: 'positionTop',
+										displayName: 'Custom Width',
+										name: 'sizeWidth',
 										type: 'number',
+										typeOptions: {
+											minValue: 1,
+										},
 										default: 0,
-										description: 'Custom position top offset in pixels',
-									},
-									{
-										displayName: 'Position Left',
-										name: 'positionLeft',
-										type: 'number',
-										default: 0,
-										description: 'Custom position left offset in pixels',
-									},
-									{
-										displayName: 'Remove Background',
-										name: 'removeBackground',
-										type: 'boolean',
-										default: false,
 										description:
-											'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
-									},
-									{
-										displayName: 'Color Overlay (Hex)',
-										name: 'colorHex',
-										type: 'string',
-										default: '',
-										placeholder: '#FF5733',
-										description: 'Apply color overlay to the design',
-									},
-									{
-										displayName: 'Color Blend Mode',
-										name: 'colorBlendMode',
-										type: 'options',
-										options: [
-											{ name: 'Normal', value: 'normal' },
-											{ name: 'Multiply', value: 'multiply' },
-											{ name: 'Screen', value: 'screen' },
-											{ name: 'Overlay', value: 'overlay' },
-											{ name: 'Darken', value: 'darken' },
-											{ name: 'Lighten', value: 'lighten' },
-											{ name: 'Color Dodge', value: 'color-dodge' },
-											{ name: 'Color Burn', value: 'color-burn' },
-											{ name: 'Hard Light', value: 'hard-light' },
-											{ name: 'Soft Light', value: 'soft-light' },
-										],
-										default: 'normal',
-										description: 'Blend mode for color overlay',
-									},
-									{
-										displayName: 'Brightness',
-										name: 'brightness',
-										type: 'number',
-										typeOptions: {
-											minValue: -150,
-											maxValue: 150,
-										},
-										default: 0,
-										description: 'Brightness adjustment (-150 to 150)',
-									},
-									{
-										displayName: 'Contrast',
-										name: 'contrast',
-										type: 'number',
-										typeOptions: {
-											minValue: -100,
-											maxValue: 100,
-										},
-										default: 0,
-										description: 'Contrast adjustment (-100 to 100)',
+											'Custom asset width override in pixels. 0 = use smart object bounds.',
 									},
 									{
 										displayName: 'Opacity',
@@ -1152,6 +1132,39 @@ export class SudoMock implements INodeType {
 										},
 										default: 100,
 										description: 'Layer opacity (0-100)',
+									},
+									{
+										displayName: 'Position Left',
+										name: 'positionLeft',
+										type: 'number',
+										default: 0,
+										description: 'Custom position left offset in pixels',
+									},
+									{
+										displayName: 'Position Top',
+										name: 'positionTop',
+										type: 'number',
+										default: 0,
+										description: 'Custom position top offset in pixels',
+									},
+									{
+										displayName: 'Remove Background',
+										name: 'removeBackground',
+										type: 'boolean',
+										default: false,
+										description:
+											'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
+									},
+									{
+										displayName: 'Rotation',
+										name: 'rotate',
+										type: 'number',
+										typeOptions: {
+											minValue: -360,
+											maxValue: 360,
+										},
+										default: 0,
+										description: 'Rotation angle in degrees',
 									},
 									{
 										displayName: 'Saturation',
@@ -1176,17 +1189,6 @@ export class SudoMock implements INodeType {
 										default: 0,
 										description:
 											'Vibrance adjustment (-100 to 100). Similar to saturation but preserves skin tones.',
-									},
-									{
-										displayName: 'Blur',
-										name: 'blur',
-										type: 'number',
-										typeOptions: {
-											minValue: 0,
-											maxValue: 100,
-										},
-										default: 0,
-										description: 'Gaussian blur amount (0=sharp, 100=max blur)',
 									},
 								],
 							},
@@ -1215,6 +1217,25 @@ export class SudoMock implements INodeType {
 				},
 				default: {},
 				options: [
+					{
+						displayName: 'DPI',
+						name: 'dpi',
+						type: 'number',
+						typeOptions: {
+							minValue: 72,
+							maxValue: 2400,
+						},
+						default: 300,
+						description:
+							'Print resolution 72-2400. Embeds a resolution tag in output metadata (JPEG/PNG/WebP). Does not change pixel count, image_size controls that (for a true print file: image_size = print inches x dpi). jpg/png recommended for max compatibility. Leave unset for web mockups.',
+					},
+					{
+						displayName: 'Export Label',
+						name: 'exportLabel',
+						type: 'string',
+						default: '',
+						description: 'Optional label for the output file naming',
+					},
 					{
 						displayName: 'Image Format',
 						name: 'imageFormat',
@@ -1260,25 +1281,6 @@ export class SudoMock implements INodeType {
 						},
 						default: 90,
 						description: 'Quality for JPG/WebP output (1-100). Ignored for PNG (always lossless).',
-					},
-					{
-						displayName: 'DPI',
-						name: 'dpi',
-						type: 'number',
-						typeOptions: {
-							minValue: 72,
-							maxValue: 2400,
-						},
-						default: 300,
-						description:
-							'Print resolution 72-2400. Embeds a resolution tag in output metadata (JPEG/PNG/WebP). Does not change pixel count, image_size controls that (for a true print file: image_size = print inches x dpi). jpg/png recommended for max compatibility. Leave unset for web mockups.',
-					},
-					{
-						displayName: 'Export Label',
-						name: 'exportLabel',
-						type: 'string',
-						default: '',
-						description: 'Optional label for the output file naming',
 					},
 				],
 			},
@@ -1492,7 +1494,7 @@ export class SudoMock implements INodeType {
 						default: '',
 						placeholder: 'kling-v3-pro',
 						description:
-							'Optional override to pin a specific model from the roster (veo-3.1-fast, kling-v3-pro, kling-2.6-pro, seedance-2.0, wan-2.5). Leave empty to let SudoMock auto-pick by plan tier. An unknown id returns a 400 error.',
+							'Optional override to pin a specific model from the roster (veo-3.1-fast, kling-v3-pro, kling-2.6-pro, seedance-2.0, wan-2.5). Leave empty to let SudoMock auto-pick by plan tier. An unknown ID returns a 400 error.',
 					},
 				],
 			},
@@ -1593,11 +1595,11 @@ export class SudoMock implements INodeType {
 						name: 'kind',
 						type: 'options',
 						options: [
+							{ name: '2D Create', value: '2d_create' },
+							{ name: '2D Render', value: '2d_render' },
 							{ name: 'Render', value: 'render' },
 							{ name: 'Upload', value: 'upload' },
 							{ name: 'Video', value: 'video' },
-							{ name: '2D Create', value: '2d_create' },
-							{ name: '2D Render', value: '2d_render' },
 						],
 						default: 'render',
 						description: 'Only return jobs of this kind',
@@ -1617,7 +1619,7 @@ export class SudoMock implements INodeType {
 							minValue: 1,
 							maxValue: 50,
 						},
-						default: 20,
+						default: 50,
 						description: 'Max number of results to return',
 					},
 					{
@@ -1670,6 +1672,12 @@ export class SudoMock implements INodeType {
 				default: {},
 				options: [
 					{
+						displayName: 'Category',
+						name: 'category',
+						type: 'string',
+						default: '',
+					},
+					{
 						displayName: 'Page',
 						name: 'page',
 						type: 'number',
@@ -1684,19 +1692,6 @@ export class SudoMock implements INodeType {
 						default: 50,
 					},
 					{
-						displayName: 'Category',
-						name: 'category',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'Search',
-						name: 'search',
-						type: 'string',
-						default: '',
-						description: 'Filter by font family name',
-					},
-					{
 						displayName: 'Scope',
 						name: 'scope',
 						type: 'options',
@@ -1706,6 +1701,13 @@ export class SudoMock implements INodeType {
 							{ name: 'Custom', value: 'custom' },
 						],
 						default: 'all',
+					},
+					{
+						displayName: 'Search',
+						name: 'search',
+						type: 'string',
+						default: '',
+						description: 'Filter by font family name',
 					},
 				],
 			},
@@ -1920,7 +1922,7 @@ export class SudoMock implements INodeType {
 							maxValue: 200,
 						},
 						default: 50,
-						description: 'Max number of results to return (1-200)',
+						description: 'Max number of results to return',
 					},
 				],
 			},
@@ -1965,8 +1967,8 @@ export class SudoMock implements INodeType {
 							minValue: 1,
 							maxValue: 200,
 						},
-						default: 100,
-						description: 'Max number of results to return (1-200)',
+						default: 50,
+						description: 'Max number of results to return',
 					},
 				],
 			},
@@ -2000,8 +2002,8 @@ export class SudoMock implements INodeType {
 					minValue: 1,
 					maxValue: 100,
 				},
-				default: 20,
-				description: 'Max number of results to return (1-100)',
+				default: 50,
+				description: 'Max number of results to return',
 			},
 			{
 				displayName: 'Additional Options',
@@ -2016,13 +2018,6 @@ export class SudoMock implements INodeType {
 				default: {},
 				options: [
 					{
-						displayName: 'Filter by Name',
-						name: 'name',
-						type: 'string',
-						default: '',
-						description: 'Filter mockups by name (case-insensitive, partial match)',
-					},
-					{
 						displayName: 'Created After',
 						name: 'created_after',
 						type: 'dateTime',
@@ -2035,6 +2030,13 @@ export class SudoMock implements INodeType {
 						type: 'dateTime',
 						default: '',
 						description: 'Filter mockups created before this date',
+					},
+					{
+						displayName: 'Filter by Name',
+						name: 'name',
+						type: 'string',
+						default: '',
+						description: 'Filter mockups by name (case-insensitive, partial match)',
 					},
 					{
 						displayName: 'Sort By',
@@ -2523,7 +2525,11 @@ export class SudoMock implements INodeType {
 					if (mode === 'mockup') {
 						body.mockup_uuid = this.getNodeParameter('artworkDeleteMockupUuid', i) as string;
 					} else {
-						const urls = parseJsonArray(this.getNodeParameter('artworkDeleteUrls', i, []), 'URLs');
+						const urls = parseJsonArray.call(
+							this,
+							this.getNodeParameter('artworkDeleteUrls', i, []),
+							'URLs',
+						);
 						if (urls.length === 0 || !urls.every((url) => typeof url === 'string')) {
 							throw new NodeOperationError(this.getNode(), 'URLs must contain at least one URL');
 						}
@@ -2573,7 +2579,8 @@ export class SudoMock implements INodeType {
 							blur?: number;
 						};
 					}>;
-					const textLayers = parseJsonArray(
+					const textLayers = parseJsonArray.call(
+						this,
 						this.getNodeParameter('textLayers', i, []),
 						'Text Layers',
 					) as Array<Record<string, unknown>>;

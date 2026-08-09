@@ -130,7 +130,7 @@ test('2D public UI exposes exact render identifiers and allows backend-authorita
 	assert.deepEqual(fullSurfaceUuid.displayOptions.show.targetType, ['fullSurface']);
 	assert.deepEqual(
 		adjustments.options.map((option) => option.name),
-		['brightness', 'contrast', 'opacity', 'saturation', 'vibrance', 'blur', 'blend_mode'],
+		['blend_mode', 'blur', 'brightness', 'contrast', 'opacity', 'saturation', 'vibrance'],
 	);
 	assert.match(renderTargets.description, /exactly one/i);
 	assert.match(setPrintAreas.description, /empty list/i);
@@ -533,7 +533,7 @@ test('recent API resources, job kinds, and webhook events are exposed', () => {
 		.options.find((option) => option.name === 'kind');
 	assert.deepEqual(
 		kind.options.map((option) => option.value),
-		['render', 'upload', 'video', '2d_create', '2d_render'],
+		['2d_create', '2d_render', 'render', 'upload', 'video'],
 	);
 });
 

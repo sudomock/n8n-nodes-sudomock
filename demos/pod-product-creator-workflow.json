@@ -1,20 +1,20 @@
 {
-  "name": "POD Product Creator - Bulk Mockup Generator",
+  "name": "Generate POD product mockups from Google Drive with SudoMock",
   "nodes": [
     {
       "parameters": {
-        "content": "## 📦 POD Product Creator\n\n**What this workflow does:**\nAutomatically creates product mockups for every design × product combination (t-shirt, mug, poster, etc.)\n\n**Requirements:**\n- SudoMock API key ([Get free tier](https://sudomock.com))\n- Google Drive access\n- PSD mockup templates uploaded to SudoMock\n- Design files in Google Drive folder\n\n**Time Saved:**\n100 designs × 10 products = 1000 mockups\nManual: ~100 hours → Automated: ~2 hours",
-        "height": 372,
-        "width": 348,
+        "content": "## Generate POD product mockups from Google Drive with SudoMock\n\n**Self-hosted n8n only.** This workflow uses the `n8n-nodes-sudomock` community node, which is not available on n8n Cloud.\n\n**Who it is for**\nPrint-on-demand sellers and catalog teams that need the same designs rendered across several PSD product templates.\n\n**How it works**\nIt reads image files from one Google Drive folder, lists your SudoMock PSD templates once, creates every design and template pair, renders each pair sequentially, then uploads one CSV of the results to Drive and emails a summary.\n\n**Setup**\n1. Install `n8n-nodes-sudomock` on self-hosted n8n.\n2. Upload the PSD templates you want to use to SudoMock.\n3. Put PNG, JPEG, WebP or GIF designs in one Drive folder. Share each design as **Anyone with the link** so SudoMock can fetch it.\n4. Edit only **Workflow Settings**: folder IDs, template filter, batch limits and notification addresses.\n5. Add Google Drive, SudoMock and SMTP credentials to their nodes.\n6. Run once manually before enabling the daily schedule.\n\nA new SudoMock account receives 500 one-time trial credits with no card required. Change the schedule, limits or CSV destination to fit your production volume.",
+        "height": 580,
+        "width": 560,
         "color": 4
       },
       "id": "1ba39055-bd39-46c9-94e6-737f24f622ab",
-      "name": "Sticky Note",
+      "name": "Workflow guide",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        6720,
-        2592
+        0,
+        -680
       ]
     },
     {
@@ -26,83 +26,123 @@
         }
       },
       "id": "d1430d5b-0fee-442d-b013-f8630766a7b8",
-      "name": "Schedule Daily",
+      "name": "Run daily",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.1,
       "position": [
-        7104,
-        2944
-      ],
-      "notes": "Run daily to check for new designs"
+        0,
+        0
+      ]
     },
     {
       "parameters": {
-        "driveId": {
-          "__rl": true,
-          "mode": "list",
-          "value": "My Drive"
-        },
-        "folderId": {
-          "__rl": true,
-          "mode": "list",
-          "value": "root",
-          "cachedResultName": "/ (Root folder)"
+        "mode": "raw",
+        "jsonOutput": "={\n  \"designFolderId\": \"root\",\n  \"outputFolderId\": \"root\",\n  \"templateNameContains\": \"\",\n  \"maxDesigns\": 100,\n  \"maxTemplates\": 10,\n  \"notificationFromEmail\": \"n8n@example.com\",\n  \"notificationToEmail\": \"seller@example.com\"\n}",
+        "options": {}
+      },
+      "id": "911c1f42-36a5-4ff8-9dda-39e3a332bc91",
+      "name": "Workflow Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "queryString": "",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $json.designFolderId }}"
+          },
+          "whatToSearch": "files"
         },
         "options": {}
       },
       "id": "f22d6e23-0665-4049-96d0-73bd3b88f9f0",
-      "name": "Get New Designs",
+      "name": "List design files",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        7328,
-        2944
-      ],
-      "notes": "Fetch new design files from Google Drive folder"
+        464,
+        -128
+      ]
     },
     {
       "parameters": {
         "operation": "listMockups",
+        "returnAll": true,
         "additionalOptions": {}
       },
       "id": "5f0156de-7c58-4b69-884e-40cff359c362",
-      "name": "Get Product Templates",
+      "name": "List SudoMock templates",
       "type": "n8n-nodes-sudomock.sudoMock",
       "typeVersion": 1,
       "position": [
-        7552,
-        2944
-      ],
-      "notes": "Get all uploaded PSD mockup templates (t-shirt, mug, poster, etc.)"
+        464,
+        160
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Create combinations: each design × each product template\nconst designs = $('Get New Designs').all();\nconst templates = $input.item.json.data.mockups;\n\nconst combinations = [];\n\nfor (const design of designs) {\n  for (const template of templates) {\n    // Find the main smart object (usually first one)\n    const smartObject = template.smart_objects[0];\n    \n    combinations.push({\n      designName: design.json.name,\n      designUrl: design.json.webViewLink,\n      templateName: template.name,\n      templateUuid: template.uuid,\n      smartObjectUuid: smartObject.uuid,\n      productType: template.name.split('-')[0] // e.g., \"TShirt-Mockup\" -> \"TShirt\"\n    });\n  }\n}\n\nreturn combinations.map(c => ({ json: c }));"
+        "jsCode": "const maxDesigns = Number($('Workflow Settings').first().json.maxDesigns) || 100;\nconst supported = /^image\\/(png|jpeg|webp|gif)$/i;\nconst files = $input.all()\n  .map(item => item.json)\n  .filter(file => file.id && supported.test(file.mimeType || ''))\n  .slice(0, maxDesigns);\n\nif (files.length === 0) {\n  throw new Error('No supported image files found. Add PNG, JPEG, WebP or GIF files to the configured Drive folder.');\n}\n\nreturn files.map(file => ({\n  json: {\n    designName: file.name,\n    designFileId: file.id,\n    designUrl: `https://drive.google.com/uc?export=download&id=${encodeURIComponent(file.id)}`\n  }\n}));"
       },
-      "id": "6cc660cb-8440-44e3-9190-1094260b7778",
-      "name": "Create Design×Product Matrix",
+      "id": "3d834d9c-21b8-4dd1-b83e-5d4a7bb3f5c8",
+      "name": "Prepare public design URLs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        7776,
-        2944
-      ],
-      "notes": "Create all combinations: design1×tshirt, design1×mug, design2×tshirt, etc."
+        704,
+        -128
+      ]
     },
     {
       "parameters": {
-        "content": "## 🔄 Sequential Processing\n\n**How it works:**\n1. Creates design × product matrix (e.g., 10 designs × 5 products = 50 combos)\n2. Processes ONE combination at a time (prevents rate limits)\n3. Each render takes ~1 second\n4. Collects results and loops back\n\n**Example:** 50 mockups = ~50 seconds sequential\n\n**Why sequential?**\nFree tier allows 1 parallel render. Upgrade to process faster:\n- Starter: 3 parallel (~17 sec for 50)\n- Pro: 10 parallel (~5 sec for 50)\n- Scale: 25 parallel (~2 sec for 50)",
-        "height": 432,
-        "width": 348,
+        "jsCode": "const settings = $('Workflow Settings').first().json;\nconst filter = String(settings.templateNameContains || '').trim().toLowerCase();\nconst maxTemplates = Number(settings.maxTemplates) || 10;\nconst templates = $input.all()\n  .map(item => item.json)\n  .filter(template => {\n    const hasSmartObject = Boolean(template.smart_objects?.[0]?.uuid);\n    const matchesName = !filter || String(template.name || '').toLowerCase().includes(filter);\n    return template.uuid && hasSmartObject && matchesName;\n  })\n  .slice(0, maxTemplates);\n\nif (templates.length === 0) {\n  throw new Error('No matching SudoMock PSD template with a smart object was found.');\n}\n\nreturn templates.map(template => ({\n  json: {\n    templateName: template.name,\n    templateUuid: template.uuid,\n    smartObjectUuid: template.smart_objects[0].uuid\n  }\n}));"
+      },
+      "id": "6cc660cb-8440-44e3-9190-1094260b7778",
+      "name": "Prepare product templates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "7e837c97-dab3-4c07-b86c-4ad1b2f8f9b9",
+      "name": "Create design and template pairs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        944,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Render loop\n\nThe two input branches each run once. The Merge node creates every design and template pair without repeating the Drive or SudoMock list request.\n\nPairs render sequentially so a trial account can run the workflow safely. Failed renders continue to the CSV with their error instead of stopping the whole batch. Increase concurrency only after measuring the account's actual limit.",
+        "height": 280,
+        "width": 420,
         "color": 5
       },
       "id": "99eb3e06-b2b6-475f-ac18-b3253c691e12",
-      "name": "Sticky Note1",
+      "name": "Render loop guide",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        7984,
-        2496
+        928,
+        -448
       ]
     },
     {
@@ -110,14 +150,13 @@
         "options": {}
       },
       "id": "df17569d-febe-496f-8225-8245270cb976",
-      "name": "Loop Through Combinations",
+      "name": "Loop through pairs",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        7984,
-        2944
-      ],
-      "notes": "Process one combination at a time to avoid rate limits"
+        1184,
+        0
+      ]
     },
     {
       "parameters": {
@@ -127,6 +166,7 @@
             {
               "uuid": "={{ $json.smartObjectUuid }}",
               "assetUrl": "={{ $json.designUrl }}",
+              "fit": "contain",
               "additionalOptions": {}
             }
           ]
@@ -135,66 +175,67 @@
           "imageFormat": "png",
           "imageSize": 2400,
           "quality": 95,
-          "exportLabel": "={{ $json.designName + '-' + $json.productType }}"
+          "exportLabel": "={{ $json.designName + '-' + $json.templateName }}"
         }
       },
       "id": "fde9cb5b-3875-44d4-adda-fa7e377adadd",
-      "name": "Render Product Mockup",
+      "name": "Render product mockup",
       "type": "n8n-nodes-sudomock.sudoMock",
       "typeVersion": 1,
       "position": [
-        8208,
-        2944
+        1424,
+        128
       ],
-      "continueOnFail": true,
-      "notes": "Generate high-quality mockup for this design×product"
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const loopData = $('Loop Through Combinations').item.json;\nconst renderResult = $input.item.json;\n\nreturn [{\n  json: {\n    designName: loopData.designName,\n    productType: loopData.productType,\n    mockupUrl: renderResult.renderedImageUrl || null,\n    success: !!renderResult.renderedImageUrl,\n    error: renderResult.error || null\n  }\n}];"
+        "jsCode": "const pair = $('Loop through pairs').item.json;\nconst render = $input.item.json;\nconst mockupUrl = render.renderedImageUrl || '';\nconst error = typeof render.error === 'string' ? render.error : render.error?.message || '';\n\nreturn [{\n  json: {\n    designName: pair.designName,\n    templateName: pair.templateName,\n    mockupUrl,\n    status: mockupUrl ? 'SUCCESS' : 'FAILED',\n    error\n  }\n}];"
       },
       "id": "fdf9f408-9d14-4888-9cf0-ef9d435bc3be",
-      "name": "Collect Result",
+      "name": "Collect render result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8432,
-        2944
+        1648,
+        128
       ]
     },
     {
       "parameters": {
-        "jsCode": "const allResults = $input.all();\n\n// Group by design name\nconst byDesign = {};\nallResults.forEach(r => {\n  const design = r.json.designName;\n  if (!byDesign[design]) byDesign[design] = [];\n  byDesign[design].push(r.json);\n});\n\n// Create CSV rows\nconst csvRows = ['Design Name,Product Type,Mockup URL,Status'];\nallResults.forEach(r => {\n  csvRows.push(`${r.json.designName},${r.json.productType},${r.json.mockupUrl || 'FAILED'},${r.json.success ? 'SUCCESS' : 'FAILED'}`);\n});\n\nreturn [{\n  json: {\n    totalCombinations: allResults.length,\n    successCount: allResults.filter(r => r.json.success).length,\n    failedCount: allResults.filter(r => !r.json.success).length,\n    byDesign: byDesign,\n    csvContent: csvRows.join('\\n')\n  }\n}];"
+        "jsCode": "const results = $input.all();\nif (results.length === 0) throw new Error('No render results were produced.');\n\nreturn results.map(item => ({\n  json: {\n    'Design name': item.json.designName,\n    'Template name': item.json.templateName,\n    'Mockup URL': item.json.mockupUrl,\n    Status: item.json.status,\n    Error: item.json.error\n  }\n}));"
       },
       "id": "c0874fee-fbcd-438d-a729-fc50e64e9371",
-      "name": "Generate CSV Export",
+      "name": "Prepare CSV rows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8432,
-        3152
-      ],
-      "notes": "Create CSV for bulk upload to Printful/Printify"
-    },
-    {
-      "parameters": {
-        "content": "## 📊 Output & Integration\n\n**What you get:**\n- CSV file with all mockup URLs\n- Organized by design name\n- Ready for Printful/Printify bulk upload\n\n**CSV format:**\n```\nDesign Name, Product Type, Mockup URL, Status\nFlower-01, TShirt, https://..., SUCCESS\nFlower-01, Mug, https://..., SUCCESS\n```\n\n**Next steps:**\n1. Download CSV from Google Drive\n2. Import to Printful/Printify\n3. Auto-create product listings",
-        "height": 424,
-        "width": 400,
-        "color": 6
-      },
-      "id": "95570cd6-1633-4e76-917c-dde088b655b8",
-      "name": "Sticky Note2",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        8416,
-        3280
+        1424,
+        -128
       ]
     },
     {
       "parameters": {
-        "name": "={{ 'POD-Mockups-' + $now.format('YYYY-MM-DD') + '.csv' }}",
+        "operation": "csv",
+        "options": {
+          "fileName": "={{ 'POD-Mockups-' + $now.toFormat('yyyy-MM-dd') + '.csv' }}"
+        }
+      },
+      "id": "2dce33e3-8cbe-4b72-b9ed-20d2927019bf",
+      "name": "Convert results to CSV",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1648,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ 'POD-Mockups-' + $now.toFormat('yyyy-MM-dd') + '.csv' }}",
         "driveId": {
           "__rl": true,
           "mode": "list",
@@ -202,9 +243,8 @@
         },
         "folderId": {
           "__rl": true,
-          "mode": "list",
-          "value": "root",
-          "cachedResultName": "/ (Root folder)"
+          "mode": "id",
+          "value": "={{ $('Workflow Settings').first().json.outputFolderId }}"
         },
         "options": {}
       },
@@ -213,116 +253,179 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        8656,
-        3152
+        1872,
+        -128
       ]
     },
     {
       "parameters": {
-        "fromEmail": "noreply@yourdomain.com",
-        "toEmail": "seller@yourdomain.com",
-        "subject": "={{ '✅ ' + $json.successCount + ' Product Mockups Ready!' }}",
-        "html": "={{ '<h2>POD Product Mockups Generated</h2><p><strong>Total:</strong> ' + $json.totalCombinations + '</p><p><strong>Success:</strong> ' + $json.successCount + '</p><p><strong>Failed:</strong> ' + $json.failedCount + '</p><p>CSV file uploaded to Google Drive.</p>' }}",
+        "fromEmail": "={{ $('Workflow Settings').first().json.notificationFromEmail }}",
+        "toEmail": "={{ $('Workflow Settings').first().json.notificationToEmail }}",
+        "subject": "={{ $('Prepare CSV rows').all().filter(item => item.json.Status === 'SUCCESS').length + ' product mockups ready' }}",
+        "html": "={{ '<h2>POD mockup batch finished</h2><p><strong>Total:</strong> ' + $('Prepare CSV rows').all().length + '</p><p><strong>Successful:</strong> ' + $('Prepare CSV rows').all().filter(item => item.json.Status === 'SUCCESS').length + '</p><p><strong>Failed:</strong> ' + $('Prepare CSV rows').all().filter(item => item.json.Status === 'FAILED').length + '</p><p><a href=\"' + ($json.webViewLink || '#') + '\">Open the CSV in Google Drive</a></p>' }}",
         "options": {}
       },
       "id": "cb4743ee-90a1-4693-a1b5-6e96848c160b",
-      "name": "Send Summary Email",
+      "name": "Email batch summary",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        8864,
-        3152
-      ],
-      "webhookId": "48813877-617d-4cc6-9fba-29f00a52047a"
+        2096,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## CSV output\n\nEach row contains the design name, template name, rendered URL, status and any error. The Convert to File node creates a real binary CSV before the Google Drive upload.\n\nThe summary email reads counts from **Prepare CSV rows**, not from the Drive upload response. You can remove the email node without affecting render or CSV output.",
+        "height": 260,
+        "width": 420,
+        "color": 6
+      },
+      "id": "95570cd6-1633-4e76-917c-dde088b655b8",
+      "name": "Output guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        -448
+      ]
     }
   ],
-  "pinData": {},
   "connections": {
-    "Schedule Daily": {
+    "Run daily": {
       "main": [
         [
           {
-            "node": "Get New Designs",
+            "node": "Workflow Settings",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get New Designs": {
+    "Workflow Settings": {
       "main": [
         [
           {
-            "node": "Get Product Templates",
+            "node": "List design files",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "List SudoMock templates",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Product Templates": {
+    "List design files": {
       "main": [
         [
           {
-            "node": "Create Design×Product Matrix",
+            "node": "Prepare public design URLs",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Design×Product Matrix": {
+    "List SudoMock templates": {
       "main": [
         [
           {
-            "node": "Loop Through Combinations",
+            "node": "Prepare product templates",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Loop Through Combinations": {
+    "Prepare public design URLs": {
       "main": [
         [
           {
-            "node": "Generate CSV Export",
+            "node": "Create design and template pairs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare product templates": {
+      "main": [
+        [
+          {
+            "node": "Create design and template pairs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Create design and template pairs": {
+      "main": [
+        [
+          {
+            "node": "Loop through pairs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop through pairs": {
+      "main": [
+        [
+          {
+            "node": "Prepare CSV rows",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Render Product Mockup",
+            "node": "Render product mockup",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Render Product Mockup": {
+    "Render product mockup": {
       "main": [
         [
           {
-            "node": "Collect Result",
+            "node": "Collect render result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Collect Result": {
+    "Collect render result": {
       "main": [
         [
           {
-            "node": "Loop Through Combinations",
+            "node": "Loop through pairs",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate CSV Export": {
+    "Prepare CSV rows": {
+      "main": [
+        [
+          {
+            "node": "Convert results to CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert results to CSV": {
       "main": [
         [
           {
@@ -337,7 +440,7 @@
       "main": [
         [
           {
-            "node": "Send Summary Email",
+            "node": "Email batch summary",
             "type": "main",
             "index": 0
           }
@@ -350,11 +453,6 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "4b6a0d40-bef6-486b-954e-45af2222dfa0",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "4f78b142a514d746b8ac5c8a426bccfc79fa045de1e737cf3db9402e140b7c5b"
-  },
-  "id": "hJ48C57K9kadS90L",
+  "pinData": {},
   "tags": []
 }

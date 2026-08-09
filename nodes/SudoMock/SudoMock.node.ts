@@ -98,7 +98,7 @@ export class SudoMock implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SudoMock',
 		name: 'sudoMock',
-		icon: 'file:sudomock.svg',
+		icon: { light: 'file:sudomock.svg', dark: 'file:sudomock.svg' },
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',

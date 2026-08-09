@@ -27,7 +27,7 @@ export class SudoMockTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SudoMock Trigger',
 		name: 'sudoMockTrigger',
-		icon: 'file:sudomock.svg',
+		icon: { light: 'file:sudomock.svg', dark: 'file:sudomock.svg' },
 		group: ['trigger'],
 		version: 1,
 		subtitle:
@@ -36,6 +36,7 @@ export class SudoMockTrigger implements INodeType {
 		defaults: { name: 'SudoMock Trigger' },
 		inputs: [],
 		outputs: [NodeConnectionTypes.Main],
+		usableAsTool: true,
 		credentials: [{ name: 'sudoMockApi', required: true }],
 		webhooks: [
 			{

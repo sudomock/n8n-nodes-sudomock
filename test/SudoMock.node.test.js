@@ -721,8 +721,9 @@ test('background removal flags travel on both render paths only when enabled', a
 	});
 });
 
-test('the trigger is packaged and its helper verifies the exact signed payload', () => {
+test('the trigger is packaged, verifies signatures, and cleans up an already deleted webhook', async () => {
 	const packageJson = require('../package.json');
+	const { SudoMockTrigger } = require('../dist/nodes/SudoMock/SudoMockTrigger.node.js');
 	const { verifyWebhookSignature } = require('../dist/nodes/SudoMock/webhooks.js');
 	const payload = '{"type":"2d_render.succeeded"}';
 	const timestamp = 1_700_000_000;
@@ -744,6 +745,16 @@ test('the trigger is packaged and its helper verifies the exact signed payload',
 		verifyWebhookSignature(payload, signature, timestamp, 'secret', 300, timestamp + 301),
 		false,
 	);
+
+	const staticData = { webhookId: 'already-deleted', webhookSecret: 'secret' };
+	const deleted = await new SudoMockTrigger().webhookMethods.default.delete.call({
+		getWorkflowStaticData: () => staticData,
+		helpers: {
+			httpRequestWithAuthentication: async () => Promise.reject({ statusCode: 404 }),
+		},
+	});
+	assert.equal(deleted, true);
+	assert.deepEqual(staticData, {});
 });
 
 test('the built node contains no retired or internal API paths', () => {

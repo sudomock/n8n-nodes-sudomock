@@ -118,7 +118,9 @@ export class SudoMockTrigger implements INodeType {
 						url: `${API_URL}/${data.webhookId as string}`,
 					});
 				} catch (error) {
-					throw new NodeApiError(this.getNode(), error as JsonObject);
+					if (Number((error as JsonObject).statusCode) !== 404) {
+						throw new NodeApiError(this.getNode(), error as JsonObject);
+					}
 				}
 
 				delete data.webhookId;

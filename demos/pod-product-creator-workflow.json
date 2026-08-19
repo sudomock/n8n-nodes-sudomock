@@ -4,7 +4,7 @@
     {
       "parameters": {
         "content": "## Generate POD product mockups from Google Drive with SudoMock\n\n**Self-hosted n8n only.** This workflow uses the `n8n-nodes-sudomock` community node, which is not available on n8n Cloud.\n\n**Who it is for**\nPrint-on-demand sellers and catalog teams that need the same designs rendered across several PSD product templates.\n\n**How it works**\nIt reads image files from one Google Drive folder, lists your SudoMock PSD templates once, creates every design and template pair, renders each pair sequentially, then uploads one CSV of the results to Drive and emails a summary.\n\n**Setup**\n1. Install `n8n-nodes-sudomock` on self-hosted n8n.\n2. Upload the PSD templates you want to use to SudoMock.\n3. Put PNG, JPEG, WebP or GIF designs in one Drive folder. Share each design as **Anyone with the link** so SudoMock can fetch it.\n4. Edit only **Workflow Settings**: folder IDs, template filter, batch limits and notification addresses.\n5. Add Google Drive, SudoMock and SMTP credentials to their nodes.\n6. Run once manually before enabling the daily schedule.\n\nA new SudoMock account receives 500 one-time trial credits with no card required. Change the schedule, limits or CSV destination to fit your production volume.",
-        "height": 580,
+        "height": 640,
         "width": 560,
         "color": 4
       },
@@ -14,7 +14,7 @@
       "typeVersion": 1,
       "position": [
         0,
-        -680
+        -784
       ]
     },
     {

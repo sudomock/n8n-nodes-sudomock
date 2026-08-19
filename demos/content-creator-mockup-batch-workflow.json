@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## 🎨 Content Creator Mockup Automation\n\n**What this workflow does:**\nAuto-creates platform-optimized mockups for Instagram, Twitter, LinkedIn when you upload a design\n\n**Requirements:**\n- SudoMock API key ([Free tier: 500 credits](https://sudomock.com))\n- Google Drive folder setup\n- Device mockup PSDs (laptop, phone, billboard)\n- Buffer account (optional for auto-scheduling)\n\n**Output:**\nEvery design → 12 mockup variants\n(3 devices × 4 platforms)",
+        "content": "## 🎨 Content Creator Mockup Automation\n\n**What this workflow does:**\nAuto-creates platform-optimized mockups for Instagram, Twitter, LinkedIn when you upload a design\n\n**Requirements:**\n- SudoMock API key ([500 credits on signup](https://sudomock.com))\n- Google Drive folder setup\n- Device mockup PSDs (laptop, phone, billboard)\n- Buffer account (optional for auto-scheduling)\n\n**Output:**\nEvery design → 12 mockup variants\n(3 devices × 4 platforms)",
         "height": 372,
         "width": 428,
         "color": 4

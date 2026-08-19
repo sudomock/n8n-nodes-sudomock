@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## 📱 App Screenshot Generator\n\n**What this workflow does:**\nAuto-generates App Store screenshots for iPhone, iPad, MacBook mockups from CI/CD pipeline\n\n**Requirements:**\n- SudoMock API key ([Free tier](https://sudomock.com))\n- Device mockup PSDs uploaded (iPhone 15, iPad Pro, MacBook)\n- Webhook endpoint configured\n- Screenshot URLs (from app build)\n\n**Perfect for:**\n- App Store submission automation\n- Product launch assets\n- Multi-language app screenshots",
+        "content": "## 📱 App Screenshot Generator\n\n**What this workflow does:**\nAuto-generates App Store screenshots for iPhone, iPad, MacBook mockups from CI/CD pipeline\n\n**Requirements:**\n- SudoMock API key ([500 credits on signup](https://sudomock.com))\n- Device mockup PSDs uploaded (iPhone 15, iPad Pro, MacBook)\n- Webhook endpoint configured\n- Screenshot URLs (from app build)\n\n**Perfect for:**\n- App Store submission automation\n- Product launch assets\n- Multi-language app screenshots",
         "height": 388,
         "width": 412,
         "color": 4

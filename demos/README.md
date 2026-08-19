@@ -141,7 +141,7 @@ Before using these workflows, you'll need:
 - [Download n8n](https://n8n.io) or [Try n8n Cloud](https://n8n.cloud)
 
 **2. SudoMock API Account**
-- Free tier: 500 API credits (no credit card required)
+- 500 credits on signup, granted once, no credit card required
 - [Sign up at sudomock.com](https://sudomock.com)
 - Generate API key from dashboard
 
@@ -160,19 +160,31 @@ Before using these workflows, you'll need:
 
 ### Rate Limits & Plans
 
-SudoMock operates on a **credit-based system**. All plans include:
-- **1000 requests/minute** base rate limit
-- Parallel rendering limits based on plan tier
+Every account gets a **1000 requests/minute** base rate limit. What changes between
+plans is how many renders run at once.
 
-**Free Tier:**
-- 500 API credits (one-time)
-- 1 parallel render
-- Perfect for testing these workflows
+**Pay as you go** is the entry tier and needs no subscription: $0.10 per PSD render,
+so $1 covers 10, with a $5 minimum first payment. 2D Mockups and video are priced by
+what they cost to produce rather than at the flat render rate.
 
-**Paid Plans:**
-- Faster parallel processing (3-25 concurrent renders)
-- Volume discounts available
-- [See full pricing](https://sudomock.com/pricing)
+**Before a card is verified**, a new account is in trial:
+- 500 credits, granted once, and they do not renew
+- 1 render at a time
+- Renders come back watermarked and capped at 1,024 px
+- 5 PSD templates, and one that goes 13 days without a render is removed
+- Enough to run these workflows end to end and see real output
+
+Verifying a card and funding the $5 minimum lifts every limit in that list at once:
+the watermark and the width cap come off, stored templates go to 150, renders run 25
+at a time alongside 10 concurrent uploads, and templates stop being removed for
+sitting idle. It does not change your tier: trial is the unfunded state of pay as
+you go, not a separate plan.
+
+**Volume plans** start at $25/month for 5,000 renders and buy a monthly credit
+allowance at a lower rate per render, plus more template storage on the higher
+tiers. Parallel renders are 3 on Starter, 10 on Pro, and 25 on Scale. The lowest
+self-serve rate is $2.42 per 1,000 renders on the annual Pro 50K plan.
+[See full pricing](https://sudomock.com/pricing)
 
 ### Installation
 

@@ -1502,7 +1502,7 @@ export class SudoMock implements INodeType {
 										description: 'Covers the area and crops the overflow, proportions kept (recommended)',
 									},
 								],
-								default: 'cover',
+								default: 'crop',
 								description: 'How to fit the design in the smart object bounds',
 							},
 						],

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-19
+
+### Changed (BREAKING)
+- The three fit modes are now spelled the same way everywhere: `fill`, `fit`
+  and `crop`, with the node's own labels reading Fill, Fit and Crop. Before
+  this the label and the value could disagree: a Fill button in the editor
+  sends `cover`, which keeps proportions and crops, while this node's Fill
+  sent `fill`, which does not keep them. No error was returned and no warning
+  shown, only a squashed design, and in print on demand that can reach a
+  physical print.
+- `contain` and `cover` are the older names for `fit` and `crop`. The API
+  still accepts them and will keep accepting them, so a workflow saved before
+  this release keeps rendering exactly as it did. Only the words this node
+  writes have changed.
+
+
 ## [0.9.0] - 2026-08-19
 
 ### Changed (BREAKING)

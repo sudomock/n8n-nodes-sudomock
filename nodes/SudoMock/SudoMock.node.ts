@@ -705,13 +705,13 @@ export class SudoMock implements INodeType {
 										name: 'fit',
 										type: 'options',
 										options: [
-											{ name: 'Contain', value: 'contain' },
-											{ name: 'Cover', value: 'cover' },
-											{ name: 'Stretch', value: 'fill' },
+											{ name: 'Fit', value: 'fit' },
+											{ name: 'Crop', value: 'crop' },
+											{ name: 'Fill', value: 'fill' },
 										],
-										default: 'contain',
+										default: 'fit',
 										description:
-											'How the artwork is sized to the whole print area. Leaving it out is the same as Contain. To place the artwork in a box of your own instead, add Width and Height and leave Fit out: sending both is rejected.',
+											'How the artwork is sized to the whole print area. Leaving it out is the same as Fit. To place the artwork in a box of your own instead, add Width and Height and leave Fit out: sending both is rejected.',
 									},
 									{
 										displayName: 'Height',
@@ -1081,18 +1081,18 @@ export class SudoMock implements INodeType {
 								type: 'options',
 								options: [
 									{
-										name: 'Stretch',
+										name: 'Fill',
 										value: 'fill',
 										description: 'Scales the design to the bounds without keeping its proportions (default)',
 									},
 									{
-										name: 'Contain',
-										value: 'contain',
+										name: 'Fit',
+										value: 'fit',
 										description: 'Fit inside, may leave space',
 									},
 									{
-										name: 'Cover',
-										value: 'cover',
+										name: 'Crop',
+										value: 'crop',
 										description: 'Covers the area and crops the overflow, proportions kept',
 									},
 								],
@@ -1487,18 +1487,18 @@ export class SudoMock implements INodeType {
 								type: 'options',
 								options: [
 									{
-										name: 'Stretch',
+										name: 'Fill',
 										value: 'fill',
 										description: 'Scales the design to the bounds without keeping its proportions',
 									},
 									{
-										name: 'Contain',
-										value: 'contain',
+										name: 'Fit',
+										value: 'fit',
 										description: 'Fit inside, may leave space',
 									},
 									{
-										name: 'Cover',
-										value: 'cover',
+										name: 'Crop',
+										value: 'crop',
 										description: 'Covers the area and crops the overflow, proportions kept (recommended)',
 									},
 								],

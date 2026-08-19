@@ -27,7 +27,11 @@ interface TwoDPrintAreaPoints {
 }
 
 interface TwoDRenderTarget {
-	targetType?: 'savedPrintArea' | 'fullSurface';
+	// 'fullSurface' is the value workflows saved before 2026-08-19 carry. It is
+	// accepted on read and never written again; dropping it would send those
+	// workflows down the print-area branch and render the wrong target in
+	// silence, which is worse than any name.
+	targetType?: 'savedPrintArea' | 'surface' | 'fullSurface';
 	uuid?: string;
 	surfaceUuid?: string;
 	artworkSource: string;
@@ -37,6 +41,7 @@ interface TwoDRenderTarget {
 	color?: string;
 	adjustments?: IDataObject;
 	placement?: IDataObject;
+	surfacePlacement?: IDataObject;
 }
 
 function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[]) {
@@ -552,7 +557,7 @@ export class SudoMock implements INodeType {
 				default: {},
 				placeholder: 'Add Render Target',
 				description:
-					'Artwork and options for each target. Select exactly one saved print area UUID or full-surface UUID.',
+					'Artwork and options for each target. Each target names exactly one address: a saved print area UUID, or a surface UUID.',
 				options: [
 					{
 						name: 'items',
@@ -682,45 +687,31 @@ export class SudoMock implements INodeType {
 								description: 'Optional hex color fill or overlay',
 							},
 							{
-								displayName: 'Full-Surface UUID',
-								name: 'surfaceUuid',
-								type: 'string',
-								required: true,
-								displayOptions: {
-									show: {
-										targetType: ['fullSurface'],
-									},
-								},
-								default: '',
-								description: 'The surface_uuid returned in data.surfaces by 2D: Get Mockup',
-							},
-							{
 								displayName: 'Placement',
 								name: 'placement',
 								type: 'collection',
 								placeholder: 'Add Placement Option',
-								default: {},
-								description: 'Artwork position and size settings for this print area',
-								options: [
-									{
-										displayName: 'Coverage',
-										name: 'coverage',
-										type: 'number',
-										typeOptions: { minValue: 10, maxValue: 100 },
-										default: 70,
-										description: 'Percentage of the print area covered by the artwork',
+								displayOptions: {
+									show: {
+										targetType: ['savedPrintArea'],
 									},
+								},
+								default: {},
+								description:
+									'Where the artwork sits inside the saved print area, and how it is sized. Options you do not add are not sent.',
+								options: [
 									{
 										displayName: 'Fit',
 										name: 'fit',
 										type: 'options',
 										options: [
-											{ name: 'Fill', value: 'fill' },
 											{ name: 'Contain', value: 'contain' },
 											{ name: 'Cover', value: 'cover' },
+											{ name: 'Fill', value: 'fill' },
 										],
 										default: 'contain',
-										description: 'How the artwork fits within the print area',
+										description:
+											'How the artwork is sized to the whole print area. Leaving it out is the same as Contain. To place the artwork in a box of your own instead, add Width and Height and leave Fit out: sending both is rejected.',
 									},
 									{
 										displayName: 'Height',
@@ -777,7 +768,7 @@ export class SudoMock implements INodeType {
 										typeOptions: { minValue: 1, maxValue: 30000 },
 										default: 1000,
 										description:
-											'Artwork width in print-area pixels. Add Height alongside it; the pair overrides Coverage and Fit. Width and Height are independent, so any aspect ratio is allowed.',
+											'Artwork width in print-area pixels. Add Height alongside it. The pair sizes the artwork to a box you choose, so it takes the place of Fit rather than joining it. Width and Height are independent, so any aspect ratio is allowed.',
 									},
 								],
 							},
@@ -803,6 +794,101 @@ export class SudoMock implements INodeType {
 								description: 'The print_area_id returned in data.quads by 2D: Get Mockup',
 							},
 							{
+								displayName: 'Surface Placement',
+								name: 'surfacePlacement',
+								type: 'collection',
+								placeholder: 'Add Placement Option',
+								displayOptions: {
+									show: {
+										targetType: ['surface', 'fullSurface'],
+									},
+								},
+								default: {},
+								description:
+									'Where the artwork sits on the surface, and how much of the surface it takes up. Options you do not add are not sent.',
+								options: [
+									{
+										displayName: 'Coverage',
+										name: 'coverage',
+										type: 'number',
+										typeOptions: { minValue: 10, maxValue: 100 },
+										default: 100,
+										description:
+											'Percentage of the surface the artwork takes up, from 10 to 100. Leaving it out covers the whole surface. Use this or an explicit Width and Height pair, not both.',
+									},
+									{
+										displayName: 'Height',
+										name: 'height',
+										type: 'number',
+										typeOptions: { minValue: 1, maxValue: 30000 },
+										default: 0,
+										description:
+											'Artwork height in pixels. Send together with Width. A drawn size cannot be expressed as a percentage when its proportions differ from the surface, which is why the pair is offered here at all.',
+									},
+									{
+										displayName: 'Offset X',
+										name: 'offset_x',
+										type: 'number',
+										default: 0,
+										description: 'Horizontal artwork offset in pixels',
+									},
+									{
+										displayName: 'Offset Y',
+										name: 'offset_y',
+										type: 'number',
+										default: 0,
+										description: 'Vertical artwork offset in pixels',
+									},
+									{
+										displayName: 'Position',
+										name: 'position',
+										type: 'options',
+										options: [
+											{ name: 'Bottom Center', value: 'bottom_center' },
+											{ name: 'Bottom Left', value: 'bottom_left' },
+											{ name: 'Bottom Right', value: 'bottom_right' },
+											{ name: 'Center', value: 'center' },
+											{ name: 'Center Left', value: 'center_left' },
+											{ name: 'Center Right', value: 'center_right' },
+											{ name: 'Top Center', value: 'top_center' },
+											{ name: 'Top Left', value: 'top_left' },
+											{ name: 'Top Right', value: 'top_right' },
+										],
+										default: 'center',
+										description: 'Predefined artwork position on the surface',
+									},
+									{
+										displayName: 'Rotation',
+										name: 'rotation',
+										type: 'number',
+										default: 0,
+										description: 'Artwork rotation in degrees',
+									},
+									{
+										displayName: 'Width',
+										name: 'width',
+										type: 'number',
+										typeOptions: { minValue: 1, maxValue: 30000 },
+										default: 0,
+										description:
+											'Artwork width in pixels. Send together with Height, and without Coverage.',
+									},
+								],
+							},
+							{
+								displayName: 'Surface UUID',
+								name: 'surfaceUuid',
+								type: 'string',
+								required: true,
+								displayOptions: {
+									show: {
+										targetType: ['surface', 'fullSurface'],
+									},
+								},
+								default: '',
+								description: 'The surface_uuid returned in data.surfaces by 2D: Get Mockup',
+							},
+							{
 								displayName: 'Target Type',
 								name: 'targetType',
 								type: 'options',
@@ -813,13 +899,14 @@ export class SudoMock implements INodeType {
 										description: 'Target a saved print area returned in data.quads',
 									},
 									{
-										name: 'Full Surface',
-										value: 'fullSurface',
-										description: 'Target a full surface returned in data.surfaces',
+										name: 'Surface',
+										value: 'surface',
+										description: 'Target a printable product returned in data.surfaces',
 									},
 								],
 								default: 'savedPrintArea',
-								description: 'Whether this artwork targets a saved area or a full surface',
+								description:
+									'Whether this artwork targets a saved print area or the surface it sits on. A product can carry both, and they are separate targets.',
 							},
 						],
 					},
@@ -2311,18 +2398,20 @@ export class SudoMock implements INodeType {
 						[],
 					) as TwoDRenderTarget[];
 					const printAreas = printAreasData.map((area) => {
-						const targetType = area.targetType ?? 'savedPrintArea';
-						const targetValue = targetType === 'fullSurface' ? area.surfaceUuid : area.uuid;
+						// 'fullSurface' is what workflows saved before the rename carry.
+						const targetType =
+							area.targetType === 'fullSurface' ? 'surface' : area.targetType ?? 'savedPrintArea';
+						const targetValue = targetType === 'surface' ? area.surfaceUuid : area.uuid;
 						if (!targetValue) {
 							throw new NodeOperationError(
 								this.getNode(),
-								targetType === 'fullSurface'
-									? 'Full-Surface UUID is required for a full-surface render target'
+								targetType === 'surface'
+									? 'Surface UUID is required for a surface render target'
 									: 'Saved Print Area UUID is required for a saved print-area render target',
 							);
 						}
 						const printArea: Record<string, unknown> =
-							targetType === 'fullSurface' ? { surface_uuid: targetValue } : { uuid: targetValue };
+							targetType === 'surface' ? { surface_uuid: targetValue } : { uuid: targetValue };
 						if (area.artworkSource === 'base64') {
 							printArea.base64 = area.base64;
 						} else {
@@ -2349,8 +2438,71 @@ export class SudoMock implements INodeType {
 								}).filter(([, value]) => value !== undefined),
 							);
 						}
-						if (area.placement && Object.keys(area.placement).length > 0) {
-							printArea.placement = area.placement;
+						const placement = (
+							targetType === 'surface' ? area.surfacePlacement : area.placement
+						) as IDataObject | undefined;
+						if (placement && Object.keys(placement).length > 0) {
+							// Which options the caller WROTE, not which of them hold a value. An
+							// explicitly written null is the caller naming the option, and the API
+							// answers it by name; a value check waves that through and teaches the
+							// author nothing.
+							const named = (key: string) => Object.prototype.hasOwnProperty.call(placement, key);
+							const hasWidth = named('width');
+							const hasHeight = named('height');
+							if (hasWidth !== hasHeight) {
+								throw new NodeOperationError(
+									this.getNode(),
+									'Width and Height travel together. Add the missing one, or drop both.',
+								);
+							}
+							// `scale` was a placement control until 0.8.0, where one multiplier
+							// was found unable to express two free axes. It was retired with no
+							// alias and no mapping, so workflows saved before that still carry
+							// it on disk with no control left to remove it through. Naming it
+							// here keeps the retirement visible, which was the point, without
+							// putting a field the API refuses on the wire.
+							if (named('scale')) {
+								throw new NodeOperationError(
+									this.getNode(),
+									'Scale was retired: one multiplier cannot size two independent axes. Size the artwork with a Width and Height pair instead, and remove Scale.',
+								);
+							}
+							if (targetType === 'savedPrintArea') {
+								if (named('fit') && (hasWidth || hasHeight)) {
+									throw new NodeOperationError(
+										this.getNode(),
+										'A print area takes either Fit or an explicit Width and Height pair, not both. Remove one of them.',
+									);
+								}
+								// A percentage on a print area is no longer a thing the API will
+								// answer. Workflows saved before 2026-08-19 still carry
+								// `coverage: 70` on disk and cannot edit it away through a
+								// control that no longer exists, so it is dropped here rather
+								// than forwarded into a 422 whose cause the author cannot see.
+								delete placement.coverage;
+							} else {
+								// A surface is the whole product, so there are no bounds to fit
+								// against and Fit belongs to a print area alone. The surface
+								// collection never offers it, so arriving here means the target
+								// was built by an expression rather than the panel. Refusing it
+								// by name beats forwarding a 422 the author has no field to
+								// trace back to.
+								if (named('fit')) {
+									throw new NodeOperationError(
+										this.getNode(),
+										'A surface covers the whole product, so it has no bounds to fit against. Fit belongs to a print area. Use Coverage, or a Width and Height pair.',
+									);
+								}
+								if (named('coverage') && (hasWidth || hasHeight)) {
+									throw new NodeOperationError(
+										this.getNode(),
+										'A surface takes either Coverage or an explicit Width and Height pair, not both. Remove one of them.',
+									);
+								}
+							}
+							if (Object.keys(placement).length > 0) {
+								printArea.placement = placement;
+							}
 						}
 						return printArea;
 					});

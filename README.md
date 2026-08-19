@@ -21,10 +21,10 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 ### 2D Mockups
 
 - **2D: Create Mockup**: Create a reusable 2D mockup from an image
-- **2D: Get Mockup**: Check preparation status and get ready print areas
+- **2D: Get Mockup**: Check preparation status and get the ready surfaces and print areas
 - **2D: List Mockups**: List your 2D mockups
 - **2D: Set Print Areas**: Define print areas with four-point quads
-- **2D: Render Mockup**: Render artwork into ready print areas for 5 credits
+- **2D: Render Mockup**: Render artwork onto a ready surface or print area for 5 credits
 - **2D: Delete Mockup**: Delete a 2D mockup
 
 ### Rendering
@@ -120,15 +120,33 @@ Retrieve your account information, subscription details, and credit usage.
       "name": "John Doe"
     },
     "subscription": {
-      "plan": { "name": "Pro", "tier": "pro" },
+      "plan": "pro-25k",
+      "tier": "pro",
       "status": "active"
     },
     "usage": {
-      "credits_used_this_month": 250,
-      "credits_limit": 1000,
-      "credits_remaining": 750
+      "credits_used_this_month": 6250,
+      "credits_limit": 25000,
+      "credits_remaining": 18750,
+      "prepaid_balance": 0,
+      "prepaid_balance_currency": "USD"
     }
   }
+}
+```
+
+An account is funded either by a subscription allowance or by a prepaid balance,
+and the two are independent. The three `credits_*` fields describe the allowance
+only. An account paying as it goes has no allowance, so it reports all three as `0`
+while holding a positive `prepaid_balance` and being perfectly able to pay:
+
+```json
+"usage": {
+  "credits_used_this_month": 0,
+  "credits_limit": 0,
+  "credits_remaining": 0,
+  "prepaid_balance": 12.5,
+  "prepaid_balance_currency": "USD"
 }
 ```
 
@@ -342,11 +360,27 @@ Deletion confirmation
 Create, prepare, render, and manage reusable mockups from product images without a PSD.
 
 1. **2D: Create Mockup** accepts a public `source_url` or `source_base64`, plus an optional name. By default it waits and returns the ready mockup detail unchanged. Enable **Run Asynchronously** to receive a 202 job with `job_id` and `status_url`, then use **Get Job** when needed.
-2. **2D: Get Mockup** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`. The ready response keeps saved areas in `data.quads` (addressed by `print_area_id`) and full surfaces in `data.surfaces` (addressed by `surface_uuid`).
+2. **2D: Get Mockup** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`. The ready response lists every printable product in `data.surfaces` (addressed by `surface_uuid`), and every print area someone has drawn in `data.quads` (addressed by `print_area_id`).
 3. **2D: List Mockups** returns your 2D mockups with limit, offset, and shopper-customizable filtering.
 4. **2D: Set Print Areas** replaces saved areas with quads made from four `[x, y]` coordinate pairs. It can also send an empty list; the API remains authoritative and accepts that only when the mockup can remain renderable without saved areas.
-5. **2D: Render Mockup** accepts the mockup UUID and one or more ready render targets. Each target sends exactly one identifier: `uuid` for a saved area or `surface_uuid` for a full surface. Each target also includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, public adjustments, and placement. Export options support PNG, JPG, or WebP from 100 to 10000 pixels, plus quality and optional DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
+5. **2D: Render Mockup** accepts the mockup UUID and one or more ready render targets. Each target names exactly one address: `uuid` for a saved print area, or `surface_uuid` for a surface. Each target also includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, public adjustments, and placement. Export options support PNG, JPG, or WebP from 100 to 10000 pixels, plus quality and optional DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
 6. **2D: Delete Mockup** deletes the selected 2D mockup.
+
+A surface and a print area are separate render targets. Saving a print area on a
+product does not close off the surface under it, so an all-over print and a chest
+logo can both be addressed on the same product, in the same call, as two targets.
+
+Placement is where the two kinds differ:
+
+- A **surface** target takes **Coverage**, a percentage from 10 to 100. Leave it out
+  and the artwork covers the whole surface.
+- A **print area** target takes either **Fit** (`contain`, `fill`, or `cover`), which
+  always sizes the artwork to the whole area, or an explicit **Width** and **Height**
+  pair when you want to choose the box yourself. Send one or the other, never both,
+  and send Width and Height together. Leaving Fit out is the same as `contain`.
+
+Both kinds take position, offset, and rotation. Anything you do not set is not sent,
+so the API decides it.
 
 Create must reach `ready` through **2D: Get Mockup** before **2D: Render Mockup**.
 
@@ -539,11 +573,32 @@ See [`examples/README.md`](./examples/README.md) for detailed instructions, cust
    → Check credit usage
 
 3. [IF Node]
-   → If credits < 100
+   → If credits_limit > 0
+       AND credits_remaining < 5% of credits_limit
+     OR credits_limit == 0
+       AND prepaid_balance < 5
 
 4. [Send Email/Slack]
-   → Alert about low credits
+   → Alert about low funds
 ```
+
+Alert on whichever way the account is actually funded, because the two branches
+measure different things and neither one alone is correct.
+
+An account with a subscription has an allowance, so watch `credits_remaining`
+against `credits_limit`. Use a percentage rather than a fixed number: the
+allowance ranges from 5,000 to 100,000 depending on the plan, so a threshold
+tuned for one plan is noise on another.
+
+An account paying as it goes has no allowance at all. It reports
+`credits_limit: 0` and `credits_remaining: 0` permanently, and those numbers
+never reset, so a bare `credits_remaining < 100` fires forever on an account
+that is fully funded. Watch `prepaid_balance` for that account instead.
+
+Do not build a percentage or a progress bar out of `prepaid_balance`. It is an
+amount, not a fraction, and it has no denominator to be a percentage of. For the
+same reason, never report the pair as `0 / 0`: that reads as an empty account
+when it means the allowance is simply not the thing paying.
 
 ## Rate Limits
 

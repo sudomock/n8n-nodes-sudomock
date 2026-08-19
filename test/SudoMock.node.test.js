@@ -118,16 +118,19 @@ test('2D public UI exposes exact render identifiers and allows backend-authorita
 	const renderFields = renderTargets.options.find((option) => option.name === 'items').values;
 	const targetType = renderFields.find((field) => field.name === 'targetType');
 	const savedUuid = renderFields.find((field) => field.name === 'uuid');
-	const fullSurfaceUuid = renderFields.find((field) => field.name === 'surfaceUuid');
+	const surfaceUuid = renderFields.find((field) => field.name === 'surfaceUuid');
 	const adjustments = renderFields.find((field) => field.name === 'adjustments');
 	const setPrintAreas = properties.find((property) => property.name === 'twoDSetPrintAreas');
 
+	// Only 'surface' is offered. 'fullSurface' is not in the picker any more but
+	// is still shown, because a workflow saved before the rename holds that
+	// value and its fields have to keep appearing.
 	assert.deepEqual(
 		targetType.options.map((option) => option.value),
-		['savedPrintArea', 'fullSurface'],
+		['savedPrintArea', 'surface'],
 	);
 	assert.deepEqual(savedUuid.displayOptions.show.targetType, ['savedPrintArea']);
-	assert.deepEqual(fullSurfaceUuid.displayOptions.show.targetType, ['fullSurface']);
+	assert.deepEqual(surfaceUuid.displayOptions.show.targetType, ['surface', 'fullSurface']);
 	assert.deepEqual(
 		adjustments.options.map((option) => option.name),
 		['blend_mode', 'blur', 'brightness', 'contrast', 'opacity', 'saturation', 'vibrance'],
@@ -140,6 +143,53 @@ test('2D public UI exposes exact render identifiers and allows backend-authorita
 			['list2DMockups'],
 		);
 	}
+});
+
+// A surface is a printable product, and a print area is a bounded zone somebody
+// drew on one. They are separate render targets with separate dials: a surface
+// takes coverage and no fit, a print area takes fit or an explicit box and no
+// coverage. Each dial is bound to its own target kind so the node cannot offer
+// the caller a combination the API answers with a 422.
+test('each render target kind exposes only the placement dials that belong to it', () => {
+	const properties = new SudoMock().description.properties;
+	const renderFields = properties
+		.find((property) => property.name === 'twoDRenderPrintAreas')
+		.options.find((option) => option.name === 'items').values;
+	const printAreaPlacement = renderFields.find((field) => field.name === 'placement');
+	const surfacePlacement = renderFields.find((field) => field.name === 'surfacePlacement');
+
+	assert.deepEqual(printAreaPlacement.displayOptions.show.targetType, ['savedPrintArea']);
+	assert.deepEqual(surfacePlacement.displayOptions.show.targetType, ['surface', 'fullSurface']);
+
+	assert.deepEqual(
+		printAreaPlacement.options.map((option) => option.name),
+		['fit', 'height', 'offset_x', 'offset_y', 'position', 'rotation', 'width'],
+	);
+	// A surface takes a percentage or an explicit box. The box is here because a
+	// size drawn on a canvas cannot be written as a percentage once its
+	// proportions differ from the surface it sits on.
+	assert.deepEqual(
+		surfacePlacement.options.map((option) => option.name),
+		['coverage', 'height', 'offset_x', 'offset_y', 'position', 'rotation', 'width'],
+	);
+	// No fit on a surface, in either direction.
+	assert.equal(
+		surfacePlacement.options.find((option) => option.name === 'fit'),
+		undefined,
+	);
+	assert.equal(
+		printAreaPlacement.options.find((option) => option.name === 'coverage'),
+		undefined,
+	);
+
+	// Defaults are what a caller gets the moment they add a dial, so they must
+	// match what leaving the dial out already means. Omitting coverage covers
+	// the whole surface, and omitting fit is the same as contain.
+	assert.equal(
+		surfacePlacement.options.find((option) => option.name === 'coverage').default,
+		100,
+	);
+	assert.equal(printAreaPlacement.options.find((option) => option.name === 'fit').default, 'contain');
 });
 
 const MOCKUP_ID = 'mockup-1';
@@ -204,10 +254,14 @@ const cases = [
 		operation: 'get2DMockup',
 		parameters: { twoDMockupUuid: MOCKUP_ID },
 		pathId: MOCKUP_ID,
+		// surfaces[] holds one entry per printable product and quads[] holds only
+		// genuinely drawn print areas. The retired surfaces[].coverage is left in
+		// this fake upstream on purpose: the node reads no field of it, so a stale
+		// payload must still pass through to the workflow untouched.
 		response: {
 			data: {
 				quads: [{ print_area_id: 'print-area-1' }],
-				surfaces: [{ surface_uuid: 'surface-full-1', coverage: 'full' }],
+				surfaces: [{ surface_uuid: 'surface-1', coverage: 'full' }],
 			},
 		},
 		expected: { json: true },
@@ -291,7 +345,8 @@ const cases = [
 						edge_expand: 10,
 						texture_strength: 100,
 					},
-					placement: { position: 'center', coverage: 70 },
+					placement: { position: 'center', fit: 'cover' },
+					surfacePlacement: { coverage: 55 },
 				},
 			],
 			twoDExportOptions: {
@@ -311,7 +366,7 @@ const cases = [
 						base64: 'aW1hZ2U=',
 						color: '#FF0000',
 						adjustments: { brightness: 5, blend_mode: 'multiply' },
-						placement: { position: 'center', coverage: 70 },
+						placement: { position: 'center', fit: 'cover' },
 					},
 				],
 				export_options: {
@@ -333,7 +388,7 @@ const cases = [
 				{
 					targetType: 'savedPrintArea',
 					uuid: 'print-area-1',
-					surfaceUuid: 'stale-full-surface',
+					surfaceUuid: 'stale-surface',
 					artworkSource: 'url',
 					artworkUrl: 'https://cdn.example.com/design.png',
 				},
@@ -354,7 +409,7 @@ const cases = [
 		},
 	},
 	{
-		name: 'render2DMockup on a full surface',
+		name: 'render2DMockup on a surface',
 		operation: 'render2DMockup',
 		parameters: {
 			twoDMockupUuid: MOCKUP_ID,
@@ -362,9 +417,43 @@ const cases = [
 				{
 					targetType: 'fullSurface',
 					uuid: 'stale-saved-area',
-					surfaceUuid: 'surface-full-1',
+					surfaceUuid: 'surface-1',
 					artworkSource: 'url',
 					artworkUrl: 'https://cdn.example.com/design.png',
+				},
+			],
+			twoDExportOptions: {},
+		},
+		pathId: MOCKUP_ID,
+		// Nothing the caller did not name travels: no placement was set, so the
+		// body carries none and the API decides what the whole surface means.
+		expected: {
+			body: {
+				print_areas: [
+					{
+						surface_uuid: 'surface-1',
+						artwork_url: 'https://cdn.example.com/design.png',
+					},
+				],
+			},
+			json: true,
+		},
+	},
+	{
+		name: 'render2DMockup on a surface with coverage',
+		operation: 'render2DMockup',
+		parameters: {
+			twoDMockupUuid: MOCKUP_ID,
+			'twoDRenderPrintAreas.items': [
+				{
+					targetType: 'fullSurface',
+					surfaceUuid: 'surface-1',
+					artworkSource: 'url',
+					artworkUrl: 'https://cdn.example.com/design.png',
+					surfacePlacement: { position: 'center', coverage: 60 },
+					// Left over from a target that used to be a print area. It
+					// belongs to the other kind, so it must not reach the API.
+					placement: { fit: 'cover', width: 800, height: 800 },
 				},
 			],
 			twoDExportOptions: {},
@@ -374,8 +463,9 @@ const cases = [
 			body: {
 				print_areas: [
 					{
-						surface_uuid: 'surface-full-1',
+						surface_uuid: 'surface-1',
 						artwork_url: 'https://cdn.example.com/design.png',
+						placement: { position: 'center', coverage: 60 },
 					},
 				],
 			},
@@ -413,6 +503,97 @@ function runOperation(testCase) {
 
 	return new SudoMock().execute.call(context).then((output) => ({ calls, output, response }));
 }
+
+function renderTarget(area) {
+	return {
+		operation: 'render2DMockup',
+		parameters: {
+			twoDMockupUuid: MOCKUP_ID,
+			'twoDRenderPrintAreas.items': [area],
+			twoDExportOptions: {},
+		},
+	};
+}
+
+test('a workflow saved before the rename still reaches its surface', async () => {
+	// The picker only offers 'surface' now, but the value is what was written to
+	// disk. Anything that stops recognising 'fullSurface' does not fail loudly:
+	// it falls through to the print-area branch and renders the wrong target
+	// while reporting success, which is why this is pinned.
+	const { calls } = await runOperation(renderTarget({
+		targetType: 'fullSurface',
+		surfaceUuid: 'surface-legacy',
+		artworkSource: 'url',
+		artworkUrl: 'https://cdn.example.com/art.png',
+		surfacePlacement: { coverage: 55 },
+	}));
+	const target = calls[0].options.body.print_areas[0];
+	assert.equal(target.surface_uuid, 'surface-legacy');
+	assert.equal('uuid' in target, false);
+	assert.deepEqual(target.placement, { coverage: 55 });
+});
+
+test('a percentage saved on a print area is dropped rather than sent into a 422', async () => {
+	// A workflow saved before 2026-08-19 holds coverage on a print area and has
+	// no control left to remove it through. Forwarding it earns an immediate
+	// 422 the author cannot trace back to a field they can no longer see.
+	const { calls } = await runOperation(renderTarget({
+		targetType: 'savedPrintArea',
+		uuid: 'print-area-1',
+		artworkSource: 'url',
+		artworkUrl: 'https://cdn.example.com/art.png',
+		placement: { coverage: 70, position: 'center' },
+	}));
+	assert.deepEqual(calls[0].options.body.print_areas[0].placement, { position: 'center' });
+
+	// And when the percentage was the only thing there, no placement travels at
+	// all rather than an empty object.
+	const bare = await runOperation(renderTarget({
+		targetType: 'savedPrintArea',
+		uuid: 'print-area-1',
+		artworkSource: 'url',
+		artworkUrl: 'https://cdn.example.com/art.png',
+		placement: { coverage: 70 },
+	}));
+	assert.equal('placement' in bare.calls[0].options.body.print_areas[0], false);
+});
+
+test('a surface takes a drawn box, but never alongside a percentage', async () => {
+	const { calls } = await runOperation(renderTarget({
+		targetType: 'surface',
+		surfaceUuid: 'surface-1',
+		artworkSource: 'url',
+		artworkUrl: 'https://cdn.example.com/art.png',
+		surfacePlacement: { width: 4459, height: 4500 },
+	}));
+	assert.deepEqual(calls[0].options.body.print_areas[0].placement, {
+		width: 4459,
+		height: 4500,
+	});
+
+	await assert.rejects(
+		runOperation(renderTarget({
+			targetType: 'surface',
+			surfaceUuid: 'surface-1',
+			artworkSource: 'url',
+			artworkUrl: 'https://cdn.example.com/art.png',
+			surfacePlacement: { coverage: 80, width: 4459, height: 4500 },
+		})),
+		/either Coverage or an explicit Width and Height/,
+	);
+
+	// Half a pair is refused on a surface too, not only on a print area.
+	await assert.rejects(
+		runOperation(renderTarget({
+			targetType: 'surface',
+			surfaceUuid: 'surface-1',
+			artworkSource: 'url',
+			artworkUrl: 'https://cdn.example.com/art.png',
+			surfacePlacement: { width: 4459 },
+		})),
+		/Width and Height travel together/,
+	);
+});
 
 test('2D operations call the documented backend paths', async (t) => {
 	for (const testCase of cases) {
@@ -493,6 +674,106 @@ test('render sends the mockup id in the path only, never in the body', async () 
 			Object.keys(testCase.expected.body).sort(),
 			'render body may carry only documented render fields',
 		);
+	}
+});
+
+test('a print area takes fit or an explicit box, never both and never half a pair', async (t) => {
+	const rejected = [
+		{
+			name: 'fit alongside an explicit box',
+			placement: { fit: 'cover', width: 800, height: 800 },
+			message: /either Fit or an explicit Width and Height pair/i,
+		},
+		{
+			name: 'width without height',
+			placement: { position: 'center', width: 800 },
+			message: /Width and Height travel together/i,
+		},
+		{
+			name: 'height without width',
+			placement: { position: 'center', height: 800 },
+			message: /Width and Height travel together/i,
+		},
+	];
+
+	for (const item of rejected) {
+		await t.test(item.name, async () => {
+			await assert.rejects(
+				runOperation({
+					operation: 'render2DMockup',
+					parameters: {
+						twoDMockupUuid: MOCKUP_ID,
+						'twoDRenderPrintAreas.items': [
+							{
+								targetType: 'savedPrintArea',
+								uuid: 'print-area-1',
+								artworkSource: 'url',
+								artworkUrl: 'https://cdn.example.com/design.png',
+								placement: item.placement,
+							},
+						],
+					},
+				}),
+				item.message,
+			);
+		});
+	}
+});
+
+// A key written into the placement is the caller naming that option, whatever
+// the write holds. The shared wire says so in
+// `explicit_null_coverage_on_a_print_area`: the API answers a named option by
+// name, so the node reads which keys were WRITTEN and not which ones hold a
+// value. Two writes carry no value. Null is what a saved workflow holds once a
+// value was cleared. Undefined is what an expression that resolved to nothing
+// hands over, and it is the one a value check reads as absent, so every
+// scenario below is run with both.
+test('an option written into the placement names it, whatever the write holds', async (t) => {
+	const artwork = { artworkSource: 'url', artworkUrl: 'https://cdn.example.com/design.png' };
+	const printArea = { targetType: 'savedPrintArea', uuid: 'print-area-1', ...artwork };
+	const surface = { targetType: 'surface', surfaceUuid: 'surface-1', ...artwork };
+	const writes = [
+		{ label: 'cleared', value: null },
+		{ label: 'left empty by an expression', value: undefined },
+	];
+	const scenarios = [
+		{
+			name: 'Scale is still the retired control',
+			area: (value) => ({ ...printArea, placement: { scale: value } }),
+			message: /Scale was retired/i,
+		},
+		{
+			name: 'Fit is still a second answer to the sizing question',
+			area: (value) => ({ ...printArea, placement: { fit: value, width: 800, height: 800 } }),
+			message: /either Fit or an explicit Width and Height pair/i,
+		},
+		{
+			name: 'Width is still half a pair',
+			area: (value) => ({ ...printArea, placement: { position: 'center', width: value } }),
+			message: /Width and Height travel together/i,
+		},
+		{
+			name: 'Fit on a surface is still Fit on a surface',
+			area: (value) => ({ ...surface, surfacePlacement: { fit: value } }),
+			message: /no bounds to fit against/i,
+		},
+		{
+			name: 'Coverage is still a second answer to the sizing question',
+			area: (value) => ({
+				...surface,
+				surfacePlacement: { coverage: value, width: 800, height: 800 },
+			}),
+			message: /either Coverage or an explicit Width and Height pair/i,
+		},
+	];
+
+	for (const scenario of scenarios) {
+		for (const write of writes) {
+			await t.test(`${scenario.name} when ${write.label}`, async () => {
+				const area = scenario.area(write.value);
+				await assert.rejects(runOperation(renderTarget(area)), scenario.message);
+			});
+		}
 	}
 });
 

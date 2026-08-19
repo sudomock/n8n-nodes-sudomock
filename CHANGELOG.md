@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-19
+
 ### Changed (BREAKING)
+- The fit mode whose value is `fill` is now labelled **Stretch**, not Fill. The
+  same word meant the opposite thing in two places: in the Studio and the
+  dashboard editor a Fill button sends `cover`, which keeps proportions and
+  crops the overflow, while here it sent `fill`, which does not keep them. No
+  error was returned and no warning shown, only a squashed design, and in print
+  on demand that can reach a physical print. The values are unchanged, only the
+  label. `cover` is also no longer described with the verb "fill", which had
+  been joining the two ideas this rename exists to separate.
 - Placement is split by target kind. A surface target takes Coverage, or an
   explicit Width and Height pair. A print area target takes Fit, or an explicit
   Width and Height pair. Sending a percentage to a print area, or a fit to a

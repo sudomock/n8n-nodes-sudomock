@@ -189,7 +189,7 @@ test('each render target kind exposes only the placement dials that belong to it
 		surfacePlacement.options.find((option) => option.name === 'coverage').default,
 		100,
 	);
-	assert.equal(printAreaPlacement.options.find((option) => option.name === 'fit').default, 'contain');
+	assert.equal(printAreaPlacement.options.find((option) => option.name === 'fit').default, 'fit');
 });
 
 const MOCKUP_ID = 'mockup-1';

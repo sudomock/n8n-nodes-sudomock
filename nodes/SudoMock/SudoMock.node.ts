@@ -707,7 +707,7 @@ export class SudoMock implements INodeType {
 										options: [
 											{ name: 'Contain', value: 'contain' },
 											{ name: 'Cover', value: 'cover' },
-											{ name: 'Fill', value: 'fill' },
+											{ name: 'Stretch', value: 'fill' },
 										],
 										default: 'contain',
 										description:
@@ -1081,9 +1081,9 @@ export class SudoMock implements INodeType {
 								type: 'options',
 								options: [
 									{
-										name: 'Fill',
+										name: 'Stretch',
 										value: 'fill',
-										description: 'Stretch to fill entire area (default)',
+										description: 'Scales the design to the bounds without keeping its proportions (default)',
 									},
 									{
 										name: 'Contain',
@@ -1093,7 +1093,7 @@ export class SudoMock implements INodeType {
 									{
 										name: 'Cover',
 										value: 'cover',
-										description: 'Fill area, may crop edges',
+										description: 'Covers the area and crops the overflow, proportions kept',
 									},
 								],
 								default: 'fill',
@@ -1487,9 +1487,9 @@ export class SudoMock implements INodeType {
 								type: 'options',
 								options: [
 									{
-										name: 'Fill',
+										name: 'Stretch',
 										value: 'fill',
-										description: 'Stretch to fill entire area',
+										description: 'Scales the design to the bounds without keeping its proportions',
 									},
 									{
 										name: 'Contain',
@@ -1499,7 +1499,7 @@ export class SudoMock implements INodeType {
 									{
 										name: 'Cover',
 										value: 'cover',
-										description: 'Fill area, may crop edges (recommended)',
+										description: 'Covers the area and crops the overflow, proportions kept (recommended)',
 									},
 								],
 								default: 'cover',

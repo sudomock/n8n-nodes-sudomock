@@ -36,7 +36,10 @@ export class SudoMockTrigger implements INodeType {
 		defaults: { name: 'SudoMock Trigger' },
 		inputs: [],
 		outputs: [NodeConnectionTypes.Main],
-		usableAsTool: true,
+		// usableAsTool YOK: trigger dugumleri AI araci olarak cagrilamaz ve bu
+		// bayrak arac seciciyi kirletiyor -- n8n inceleme geri bildirimi,
+		// 0.10.0 reddi (2026-08-20). Normal SudoMock dugumundeki bayrak DOGRU
+		// ve yerinde duruyor; yalniz trigger'dan kaldirildi.
 		credentials: [{ name: 'sudoMockApi', required: true }],
 		webhooks: [
 			{

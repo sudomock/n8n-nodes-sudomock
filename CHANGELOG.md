@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-08-20
+
+### Fixed
+
+- Removed `usableAsTool` from the SudoMock Trigger node description. Trigger
+  nodes cannot be invoked as AI tools, and the flag polluted the tool picker
+  (n8n verification review feedback on 0.10.0). The regular SudoMock node keeps
+  the flag; only the trigger lost it.
+
 ## [0.10.0] - 2026-08-19
 
 ### Changed (BREAKING)

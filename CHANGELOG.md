@@ -5,7 +5,44 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.11.0] - 2026-09-18
+
+### Added
+
+- The five Photo Mockups event names (`photo_mockup.ready`,
+  `photo_mockup.rejected`, `photo_mockup.failed`,
+  `photo_mockup_render.succeeded`, `photo_mockup_render.failed`) can be
+  selected in the SudoMock Trigger, in Webhook: Create/Update Endpoint and in
+  the delivery/event feed filters, next to the legacy `2d_mockup.*` and
+  `2d_render.*` names.
+- **Event Naming** on Webhook: Create Endpoint (`current`, the default, or
+  `legacy`). It pins which spelling of the five Photo Mockups events the
+  endpoint receives, and the payload `kind` follows the pin. The node now
+  sends the pin explicitly on every create; a workflow saved before this
+  option existed sends `current`, which is what the API already gave it.
+- **Event Naming** under Update Fields on Webhook: Update Endpoint, to re-pin
+  an existing endpoint to `current` or `legacy` once its receiver is ready
+  for the other spelling. An update that leaves the field out does not touch
+  the pin.
+- **List Jobs** accepts the Photo Mockups job kinds `photo_mockup_create` and
+  `photo_mockup_render` in its Kind filter, next to `2d_create` and
+  `2d_render`. A Photo Mockup kind and its 2D spelling name the same jobs:
+  filtering by either returns both.
+
+### Changed
+
+- The SudoMock Trigger registers its webhook endpoint with
+  `event_naming: current`, so the deliveries it receives carry the Photo
+  Mockups names: `type` is `photo_mockup.ready` instead of `2d_mockup.ready`,
+  `photo_mockup_render.succeeded` instead of `2d_render.succeeded`, and the
+  payload `kind` is `photo_mockup_create` / `photo_mockup_render` instead of
+  `2d_create` / `2d_render`. This applies when the trigger creates a new
+  endpoint (a new trigger node, or one whose endpoint was deleted and
+  re-created on activation). An endpoint created by an earlier version keeps
+  its legacy pin and keeps delivering the old names until it is re-created.
+  Workflows that compare `$json.type` or `$json.kind` against the old
+  spellings should compare against the new ones once the trigger's endpoint
+  has been re-created.
 
 ## [0.10.1] - 2026-08-20
 

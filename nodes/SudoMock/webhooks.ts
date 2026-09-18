@@ -11,6 +11,14 @@ export const WEBHOOK_EVENT_OPTIONS = [
 	{ name: '2d_mockup.failed', value: '2d_mockup.failed' },
 	{ name: '2d_render.succeeded', value: '2d_render.succeeded' },
 	{ name: '2d_render.failed', value: '2d_render.failed' },
+	// Photo Mockups names for the five events above. Which spelling an endpoint
+	// receives is its event_naming pin: endpoints created by earlier versions
+	// keep the legacy 2d_* names, endpoints the trigger creates are pinned to these.
+	{ name: 'photo_mockup.ready', value: 'photo_mockup.ready' },
+	{ name: 'photo_mockup.rejected', value: 'photo_mockup.rejected' },
+	{ name: 'photo_mockup.failed', value: 'photo_mockup.failed' },
+	{ name: 'photo_mockup_render.succeeded', value: 'photo_mockup_render.succeeded' },
+	{ name: 'photo_mockup_render.failed', value: 'photo_mockup_render.failed' },
 	{ name: 'webhook.test', value: 'webhook.test' },
 ];
 

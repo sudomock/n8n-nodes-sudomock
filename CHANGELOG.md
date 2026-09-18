@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The five Photo Mockups event names (`photo_mockup.ready`,
+  `photo_mockup.rejected`, `photo_mockup.failed`,
+  `photo_mockup_render.succeeded`, `photo_mockup_render.failed`) can be
+  selected in the SudoMock Trigger, in Webhook: Create/Update Endpoint and in
+  the delivery/event feed filters, next to the legacy `2d_mockup.*` and
+  `2d_render.*` names.
+
+### Changed
+
+- The SudoMock Trigger registers its webhook endpoint with
+  `event_naming: current`, so the deliveries it receives carry the Photo
+  Mockups names: `type` is `photo_mockup.ready` instead of `2d_mockup.ready`,
+  `photo_mockup_render.succeeded` instead of `2d_render.succeeded`, and the
+  payload `kind` is `photo_mockup_create` / `photo_mockup_render` instead of
+  `2d_create` / `2d_render`. This applies when the trigger creates a new
+  endpoint (a new trigger node, or one whose endpoint was deleted and
+  re-created on activation). An endpoint created by an earlier version keeps
+  its legacy pin and keeps delivering the old names until it is re-created.
+  Workflows that compare `$json.type` or `$json.kind` against the old
+  spellings should compare against the new ones once the trigger's endpoint
+  has been re-created.
+
 ## [0.10.1] - 2026-08-20
 
 ### Fixed

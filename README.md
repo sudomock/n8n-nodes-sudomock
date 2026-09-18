@@ -41,7 +41,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 ### Async Jobs
 
 - **Get Job**: Get the status and result of an async render, upload, video, or 2D mockup job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload and 2D creation). Optionally **Wait for Completion** to poll until the job finishes.
-- **List Jobs**: List your async render, upload, video, and 2D jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
+- **List Jobs**: List your async render, upload, video, and Photo Mockups jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
 
 ### Webhooks
 
@@ -49,8 +49,8 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - Manage webhook endpoints that receive a signed HTTPS request the moment a job finishes:
 - **Webhook: List Endpoints**
 - **Webhook: Get Endpoint**
-- **Webhook: Create Endpoint** (set an optional description and choose any current event, or leave empty for all)
-- **Webhook: Update Endpoint**
+- **Webhook: Create Endpoint** (set an optional description, choose any event or leave empty for all, and pick the **Event Naming** the endpoint receives: `current` by default, or `legacy`)
+- **Webhook: Update Endpoint** (change URL, description, enabled state, events, or re-pin **Event Naming**)
 - **Webhook: Delete Endpoint**
 - **Webhook: Rotate Secret**
 - **Webhook: Send Test**
@@ -59,7 +59,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Webhook: Replay Failed Deliveries**
 - **Webhook: Events Feed** (recent deliveries across all of your endpoints)
 
-Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `photo_mockup.ready`, `photo_mockup.rejected`, `photo_mockup.failed`, `photo_mockup_render.succeeded`, `photo_mockup_render.failed`, `webhook.test`. Endpoints created by earlier versions of this package are pinned to the legacy spelling of the five Photo Mockups events (`2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`) and keep receiving those names; both spellings can be selected when subscribing, the endpoint's pin decides what is delivered. Deliveries are signed; see https://sudomock.com/docs/api/webhooks for verification details.
+Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `photo_mockup.ready`, `photo_mockup.rejected`, `photo_mockup.failed`, `photo_mockup_render.succeeded`, `photo_mockup_render.failed`, `webhook.test`. Endpoints created by earlier versions of this package are pinned to the legacy spelling of the five Photo Mockups events (`2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`) and keep receiving those names; both spellings can be selected when subscribing, the endpoint's **Event Naming** pin decides what is delivered, and **Webhook: Update Endpoint** can re-pin it. Deliveries are signed; see https://sudomock.com/docs/api/webhooks for verification details.
 
 ## Installation
 
@@ -427,11 +427,11 @@ The job object. On success it surfaces `result_url` / `resultUrl` (render/video)
 
 ### List Jobs
 
-List your async render, upload, and video jobs (newest first, keyset paginated).
+List your async render, upload, video, and Photo Mockups jobs (newest first, keyset paginated).
 
 **Parameters (all optional, under Filters):**
 
-- **Kind**: `render`, `upload`, or `video`
+- **Kind**: `render`, `upload`, `video`, `photo_mockup_create`, or `photo_mockup_render` (the older `2d_create` / `2d_render` spellings name the same jobs; filtering by either returns both)
 - **Mockup UUID**: only jobs derived from this source mockup
 - **Limit**: 1-50 (default 20)
 - **Cursor**: opaque `next_cursor` from a previous response for pagination
@@ -451,6 +451,7 @@ Manage webhook endpoints and their deliveries. See the [Webhooks](#webhooks) fea
 
 - **Webhook Endpoint ID** (required for get/update/delete/rotate/test/deliveries/replay/replay-failed)
 - **Endpoint URL** + **Description** (create) and **Events** (create/update): leave Events empty to subscribe to all
+- **Event Naming** (create, default `current`; update under Update Fields): which spelling of the Photo Mockups events the endpoint receives, `current` (`photo_mockup.*`, kind `photo_mockup_*`) or `legacy` (`2d_mockup.*`, kind `2d_*`)
 - **Delivery ID** (replay)
 - **Webhook: Events Feed** takes no parameters (returns recent deliveries across all your endpoints)
 

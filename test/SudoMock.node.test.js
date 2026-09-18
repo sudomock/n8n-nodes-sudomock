@@ -790,6 +790,11 @@ test('recent API resources, job kinds, and webhook events are exposed', () => {
 		'2d_mockup.failed',
 		'2d_render.succeeded',
 		'2d_render.failed',
+		'photo_mockup.ready',
+		'photo_mockup.rejected',
+		'photo_mockup.failed',
+		'photo_mockup_render.succeeded',
+		'photo_mockup_render.failed',
 		'webhook.test',
 	];
 
@@ -1036,6 +1041,55 @@ test('the trigger is packaged, verifies signatures, and cleans up an already del
 	});
 	assert.equal(deleted, true);
 	assert.deepEqual(staticData, {});
+});
+
+test('the trigger offers the photo-mockup event names and pins its endpoint to them', async () => {
+	const { SudoMockTrigger } = require('../dist/nodes/SudoMock/SudoMockTrigger.node.js');
+	const trigger = new SudoMockTrigger();
+	const currentEvents = [
+		'photo_mockup.ready',
+		'photo_mockup.rejected',
+		'photo_mockup.failed',
+		'photo_mockup_render.succeeded',
+		'photo_mockup_render.failed',
+	];
+	const offered = trigger.description.properties
+		.find((property) => property.name === 'events')
+		.options.map((option) => option.value);
+	for (const event of currentEvents) {
+		assert.ok(offered.includes(event), `trigger does not offer ${event}`);
+	}
+
+	// The endpoint the trigger registers is pinned to the current naming
+	// explicitly, so what the workflow receives never depends on the server
+	// default. Endpoints created before this version keep their legacy pin.
+	const requests = [];
+	const staticData = {};
+	const created = await trigger.webhookMethods.default.create.call({
+		getNodeWebhookUrl: () => 'https://n8n.example.com/webhook/sudomock',
+		getNodeParameter: (name, fallback) =>
+			name === 'events' ? ['photo_mockup_render.succeeded', 'render.succeeded'] : fallback,
+		getWorkflowStaticData: () => staticData,
+		helpers: {
+			httpRequestWithAuthentication: async (credential, options) => {
+				requests.push({ credential, options });
+				return { id: 'wh-1', secret: 'whsec' };
+			},
+		},
+	});
+
+	assert.equal(created, true);
+	assert.equal(requests.length, 1);
+	assert.equal(requests[0].credential, 'sudoMockApi');
+	assert.equal(requests[0].options.method, 'POST');
+	assert.equal(requests[0].options.url, 'https://api.sudomock.com/api/v1/webhook-endpoints');
+	assert.deepEqual(requests[0].options.body, {
+		url: 'https://n8n.example.com/webhook/sudomock',
+		description: 'Workflow trigger',
+		event_types: ['photo_mockup_render.succeeded', 'render.succeeded'],
+		event_naming: 'current',
+	});
+	assert.deepEqual(staticData, { webhookId: 'wh-1', webhookSecret: 'whsec' });
 });
 
 test('the built node contains no retired or internal API paths', () => {

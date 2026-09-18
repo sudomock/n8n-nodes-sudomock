@@ -99,6 +99,11 @@ export class SudoMockTrigger implements INodeType {
 							url,
 							description: 'Workflow trigger',
 							event_types: this.getNodeParameter('events', []) as string[],
+							// Pin the endpoint to the Photo Mockups event names explicitly, so
+							// the payload `type` and `kind` a workflow receives never depend
+							// on the server default. Either spelling may be selected above;
+							// the API stores and delivers the pinned one.
+							event_naming: 'current',
 						},
 						json: true,
 					},

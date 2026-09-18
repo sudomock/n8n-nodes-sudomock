@@ -45,7 +45,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 ### Webhooks
 
-- **SudoMock Trigger**: Start a workflow from selected SudoMock events with automatic signature verification
+- **SudoMock Trigger**: Start a workflow from selected SudoMock events with automatic signature verification. The endpoint it registers is pinned to the Photo Mockups event names (`event_naming: current`).
 - Manage webhook endpoints that receive a signed HTTPS request the moment a job finishes:
 - **Webhook: List Endpoints**
 - **Webhook: Get Endpoint**
@@ -59,7 +59,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Webhook: Replay Failed Deliveries**
 - **Webhook: Events Feed** (recent deliveries across all of your endpoints)
 
-Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`, `webhook.test`. Deliveries are signed; see https://sudomock.com/docs/api/webhooks for verification details.
+Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `photo_mockup.ready`, `photo_mockup.rejected`, `photo_mockup.failed`, `photo_mockup_render.succeeded`, `photo_mockup_render.failed`, `webhook.test`. Endpoints created by earlier versions of this package are pinned to the legacy spelling of the five Photo Mockups events (`2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`) and keep receiving those names; both spellings can be selected when subscribing, the endpoint's pin decides what is delivered. Deliveries are signed; see https://sudomock.com/docs/api/webhooks for verification details.
 
 ## Installation
 

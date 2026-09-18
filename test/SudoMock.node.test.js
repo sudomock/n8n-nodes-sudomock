@@ -790,6 +790,11 @@ test('recent API resources, job kinds, and webhook events are exposed', () => {
 		'2d_mockup.failed',
 		'2d_render.succeeded',
 		'2d_render.failed',
+		'photo_mockup.ready',
+		'photo_mockup.rejected',
+		'photo_mockup.failed',
+		'photo_mockup_render.succeeded',
+		'photo_mockup_render.failed',
 		'webhook.test',
 	];
 
@@ -814,8 +819,123 @@ test('recent API resources, job kinds, and webhook events are exposed', () => {
 		.options.find((option) => option.name === 'kind');
 	assert.deepEqual(
 		kind.options.map((option) => option.value),
-		['2d_create', '2d_render', 'render', 'upload', 'video'],
+		[
+			'2d_create',
+			'2d_render',
+			'photo_mockup_create',
+			'photo_mockup_render',
+			'render',
+			'upload',
+			'video',
+		],
 	);
+});
+
+test('List Jobs passes a Photo Mockups kind through as the API filter', async () => {
+	const { calls } = await runOperation({
+		operation: 'listJobs',
+		parameters: { listJobsFilters: { kind: 'photo_mockup_render', limit: 5 } },
+	});
+	assert.equal(calls.length, 1);
+	assert.equal(calls[0].options.method, 'GET');
+	assert.equal(calls[0].options.url, 'https://api.sudomock.com/api/v1/jobs');
+	assert.deepEqual(calls[0].options.qs, { kind: 'photo_mockup_render', limit: 5 });
+});
+
+// The endpoint's event_naming pin decides which spelling of the five Photo
+// Mockups events (and which payload kind) it receives. The regular node's
+// Create Endpoint pins explicitly, like the trigger does, so what a receiver
+// gets never depends on the server default; Update Endpoint can re-pin an
+// endpoint once its handler is ready for the other spelling.
+test('Webhook: Create Endpoint offers Event Naming and pins the endpoint explicitly', async (t) => {
+	const properties = new SudoMock().description.properties;
+	const naming = properties.find((property) => property.name === 'webhookEventNaming');
+	assert.ok(naming, 'webhookEventNaming parameter is missing');
+	assert.equal(naming.type, 'options');
+	assert.equal(naming.default, 'current');
+	assert.deepEqual(naming.displayOptions, { show: { operation: ['webhookCreate'] } });
+	assert.deepEqual(
+		naming.options.map((option) => option.value),
+		['current', 'legacy'],
+	);
+
+	await t.test('a workflow that never touched the option is pinned to current', async () => {
+		const { calls } = await runOperation({
+			operation: 'webhookCreate',
+			parameters: {
+				webhookEndpointUrl: 'https://example.com/hooks/sudomock',
+				webhookEvents: ['photo_mockup.ready'],
+			},
+		});
+		assert.equal(calls.length, 1);
+		assert.equal(calls[0].options.method, 'POST');
+		assert.equal(calls[0].options.url, 'https://api.sudomock.com/api/v1/webhook-endpoints');
+		assert.deepEqual(calls[0].options.body, {
+			url: 'https://example.com/hooks/sudomock',
+			event_types: ['photo_mockup.ready'],
+			event_naming: 'current',
+		});
+	});
+
+	await t.test('legacy can be chosen for a receiver written against the old names', async () => {
+		const { calls } = await runOperation({
+			operation: 'webhookCreate',
+			parameters: {
+				webhookEndpointUrl: 'https://example.com/hooks/sudomock',
+				webhookDescription: 'Old receiver',
+				webhookEventNaming: 'legacy',
+			},
+		});
+		assert.deepEqual(calls[0].options.body, {
+			url: 'https://example.com/hooks/sudomock',
+			description: 'Old receiver',
+			event_naming: 'legacy',
+		});
+	});
+});
+
+test('Webhook: Update Endpoint can re-pin Event Naming and otherwise leaves the pin alone', async (t) => {
+	const properties = new SudoMock().description.properties;
+	const option = properties
+		.find((property) => property.name === 'webhookUpdateFields')
+		.options.find((field) => field.name === 'eventNaming');
+	assert.ok(option, 'eventNaming is missing from Update Fields');
+	assert.equal(option.type, 'options');
+	assert.equal(option.default, 'current');
+	assert.deepEqual(
+		option.options.map((item) => item.value),
+		['current', 'legacy'],
+	);
+
+	await t.test('a chosen naming travels as event_naming', async () => {
+		const { calls } = await runOperation({
+			operation: 'webhookUpdate',
+			parameters: {
+				webhookId: 'wh-1',
+				webhookUpdateFields: { eventNaming: 'legacy', enabled: true },
+			},
+		});
+		assert.equal(calls.length, 1);
+		assert.equal(calls[0].options.method, 'PATCH');
+		assert.equal(calls[0].options.url, 'https://api.sudomock.com/api/v1/webhook-endpoints/wh-1');
+		assert.deepEqual(calls[0].options.body, { enabled: true, event_naming: 'legacy' });
+	});
+
+	await t.test('an update without the field does not touch the pin', async () => {
+		const { calls } = await runOperation({
+			operation: 'webhookUpdate',
+			parameters: {
+				webhookId: 'wh-1',
+				webhookEvents: ['render.succeeded'],
+				webhookUpdateFields: { description: 'Renamed' },
+			},
+		});
+		assert.deepEqual(calls[0].options.body, {
+			description: 'Renamed',
+			event_types: ['render.succeeded'],
+		});
+		assert.ok(!('event_naming' in calls[0].options.body));
+	});
 });
 
 test('text layers, fonts, artwork deletion, and background removal use the shipped API contract', async (t) => {
@@ -1036,6 +1156,55 @@ test('the trigger is packaged, verifies signatures, and cleans up an already del
 	});
 	assert.equal(deleted, true);
 	assert.deepEqual(staticData, {});
+});
+
+test('the trigger offers the photo-mockup event names and pins its endpoint to them', async () => {
+	const { SudoMockTrigger } = require('../dist/nodes/SudoMock/SudoMockTrigger.node.js');
+	const trigger = new SudoMockTrigger();
+	const currentEvents = [
+		'photo_mockup.ready',
+		'photo_mockup.rejected',
+		'photo_mockup.failed',
+		'photo_mockup_render.succeeded',
+		'photo_mockup_render.failed',
+	];
+	const offered = trigger.description.properties
+		.find((property) => property.name === 'events')
+		.options.map((option) => option.value);
+	for (const event of currentEvents) {
+		assert.ok(offered.includes(event), `trigger does not offer ${event}`);
+	}
+
+	// The endpoint the trigger registers is pinned to the current naming
+	// explicitly, so what the workflow receives never depends on the server
+	// default. Endpoints created before this version keep their legacy pin.
+	const requests = [];
+	const staticData = {};
+	const created = await trigger.webhookMethods.default.create.call({
+		getNodeWebhookUrl: () => 'https://n8n.example.com/webhook/sudomock',
+		getNodeParameter: (name, fallback) =>
+			name === 'events' ? ['photo_mockup_render.succeeded', 'render.succeeded'] : fallback,
+		getWorkflowStaticData: () => staticData,
+		helpers: {
+			httpRequestWithAuthentication: async (credential, options) => {
+				requests.push({ credential, options });
+				return { id: 'wh-1', secret: 'whsec' };
+			},
+		},
+	});
+
+	assert.equal(created, true);
+	assert.equal(requests.length, 1);
+	assert.equal(requests[0].credential, 'sudoMockApi');
+	assert.equal(requests[0].options.method, 'POST');
+	assert.equal(requests[0].options.url, 'https://api.sudomock.com/api/v1/webhook-endpoints');
+	assert.deepEqual(requests[0].options.body, {
+		url: 'https://n8n.example.com/webhook/sudomock',
+		description: 'Workflow trigger',
+		event_types: ['photo_mockup_render.succeeded', 'render.succeeded'],
+		event_naming: 'current',
+	});
+	assert.deepEqual(staticData, { webhookId: 'wh-1', webhookSecret: 'whsec' });
 });
 
 test('the built node contains no retired or internal API paths', () => {

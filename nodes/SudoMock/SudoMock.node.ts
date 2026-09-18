@@ -11,7 +11,7 @@ import {
 	sleep,
 } from 'n8n-workflow';
 
-import { WEBHOOK_EVENT_OPTIONS } from './webhooks';
+import { WEBHOOK_EVENT_NAMING_OPTIONS, WEBHOOK_EVENT_OPTIONS } from './webhooks';
 
 const TERMINAL_JOB_STATUSES = ['succeeded', 'failed', 'cancelled'];
 
@@ -1684,12 +1684,15 @@ export class SudoMock implements INodeType {
 						options: [
 							{ name: '2D Create', value: '2d_create' },
 							{ name: '2D Render', value: '2d_render' },
+							{ name: 'Photo Mockup Create', value: 'photo_mockup_create' },
+							{ name: 'Photo Mockup Render', value: 'photo_mockup_render' },
 							{ name: 'Render', value: 'render' },
 							{ name: 'Upload', value: 'upload' },
 							{ name: 'Video', value: 'video' },
 						],
 						default: 'render',
-						description: 'Only return jobs of this kind',
+						description:
+							'Only return jobs of this kind. A Photo Mockup kind and its 2D spelling name the same jobs: filtering by either returns both.',
 					},
 					{
 						displayName: 'Mockup UUID',
@@ -1897,6 +1900,20 @@ export class SudoMock implements INodeType {
 					'Events this endpoint receives. Leave empty to subscribe to all events, including ones added in the future.',
 			},
 			{
+				displayName: 'Event Naming',
+				name: 'webhookEventNaming',
+				type: 'options',
+				displayOptions: {
+					show: {
+						operation: ['webhookCreate'],
+					},
+				},
+				options: WEBHOOK_EVENT_NAMING_OPTIONS,
+				default: 'current',
+				description:
+					'Which spelling of the Photo Mockups events this endpoint receives. Either spelling can be selected under Events; the endpoint delivers the one chosen here.',
+			},
+			{
 				displayName: 'Webhook Endpoint ID',
 				name: 'webhookId',
 				type: 'string',
@@ -1951,6 +1968,15 @@ export class SudoMock implements INodeType {
 						default: '',
 						placeholder: 'https://your-app.com/webhooks/sudomock',
 						description: 'New HTTPS URL for the endpoint',
+					},
+					{
+						displayName: 'Event Naming',
+						name: 'eventNaming',
+						type: 'options',
+						options: WEBHOOK_EVENT_NAMING_OPTIONS,
+						default: 'current',
+						description:
+							'Re-pin the endpoint to the Photo Mockups names or the older 2D names once its receiver is ready for them. Left out, the pin stays as it is.',
 					},
 				],
 			},
@@ -3151,6 +3177,7 @@ export class SudoMock implements INodeType {
 					const url = this.getNodeParameter('webhookEndpointUrl', i) as string;
 					const events = this.getNodeParameter('webhookEvents', i, []) as string[];
 					const description = this.getNodeParameter('webhookDescription', i, '') as string;
+					const eventNaming = this.getNodeParameter('webhookEventNaming', i, 'current') as string;
 					const body: Record<string, unknown> = { url };
 					if (description) {
 						body.description = description;
@@ -3158,6 +3185,10 @@ export class SudoMock implements INodeType {
 					if (events.length > 0) {
 						body.event_types = events;
 					}
+					// Pinned explicitly, like the trigger's endpoint, so what a receiver
+					// gets never depends on the server default. A workflow saved before
+					// the option existed pins to 'current', which is what the API gave it.
+					body.event_naming = eventNaming;
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
@@ -3184,6 +3215,7 @@ export class SudoMock implements INodeType {
 						url?: string;
 						description?: string;
 						enabled?: boolean;
+						eventNaming?: string;
 					};
 					const body: Record<string, unknown> = {};
 					if (updateFields.url) {
@@ -3197,6 +3229,11 @@ export class SudoMock implements INodeType {
 					}
 					if (events.length > 0) {
 						body.event_types = events;
+					}
+					// Only an explicit choice re-pins; an update that leaves the field out
+					// keeps whatever spelling the endpoint already delivers.
+					if (updateFields.eventNaming) {
+						body.event_naming = updateFields.eventNaming;
 					}
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,

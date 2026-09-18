@@ -22,6 +22,27 @@ export const WEBHOOK_EVENT_OPTIONS = [
 	{ name: 'webhook.test', value: 'webhook.test' },
 ];
 
+// The endpoint's event_naming pin. It decides which spelling of the five
+// Photo Mockups events a delivery carries, and the payload `kind` follows it:
+// 'current' delivers photo_mockup.* / photo_mockup_render.* with kind
+// photo_mockup_create / photo_mockup_render, 'legacy' delivers 2d_mockup.* /
+// 2d_render.* with kind 2d_create / 2d_render. Either spelling can be selected
+// under Events; the pin decides what is delivered.
+export const WEBHOOK_EVENT_NAMING_OPTIONS = [
+	{
+		name: 'Current',
+		value: 'current',
+		description:
+			'Deliver the Photo Mockups names: photo_mockup.*, photo_mockup_render.*, kind photo_mockup_create or photo_mockup_render',
+	},
+	{
+		name: 'Legacy',
+		value: 'legacy',
+		description:
+			'Deliver the older names: 2d_mockup.*, 2d_render.*, kind 2d_create or 2d_render. Only for a receiver written against them',
+	},
+];
+
 export function verifyWebhookSignature(
 	payload: string,
 	signature: string,

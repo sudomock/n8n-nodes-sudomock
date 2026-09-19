@@ -10,26 +10,26 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 - **Get Account Info**: Retrieve account details, subscription plan, and usage statistics
 
-### Mockup Management
+### PSD Mockups
 
-- **Upload PSD**: Upload PSD templates from a URL
-- **List Mockups**: List all your uploaded mockup templates with filtering and pagination
-- **Get Mockup**: Get detailed information about a specific mockup template
-- **Update Mockup**: Update the name of a mockup template
-- **Delete Mockup**: Delete a specific mockup template
+- **PSD Mockup: Upload**: Upload PSD templates from a URL
+- **PSD Mockup: List**: List all your uploaded PSD mockup templates with filtering and pagination
+- **PSD Mockup: Get**: Get detailed information about a specific PSD mockup template
+- **PSD Mockup: Update**: Update the name of a PSD mockup template
+- **PSD Mockup: Delete**: Delete a specific PSD mockup template
 
-### 2D Mockups
+### Photo Mockups
 
-- **2D: Create Mockup**: Create a reusable 2D mockup from an image
-- **2D: Get Mockup**: Check preparation status and get the ready surfaces and print areas
-- **2D: List Mockups**: List your 2D mockups
-- **2D: Set Print Areas**: Define print areas with four-point quads
-- **2D: Render Mockup**: Render artwork onto a ready surface or print area for 5 credits
-- **2D: Delete Mockup**: Delete a 2D mockup
+- **Photo Mockup: Create**: Create a reusable mockup from a product photo
+- **Photo Mockup: Get**: Check preparation status and get the ready surfaces and print areas
+- **Photo Mockup: List**: List your photo mockups
+- **Photo Mockup: Set Print Areas**: Define print areas with four-point quads
+- **Photo Mockup: Render**: Render artwork onto a ready surface or print area for 5 credits
+- **Photo Mockup: Delete**: Delete a photo mockup
 
 ### Rendering
 
-- **Render Mockup**: Generate mockups with artwork, personalized text, or both. Text overrides support styled segments, fonts, size, color, stroke color, and overflow, shrink, or clip fitting. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
+- **PSD Mockup: Render**: Generate mockups with artwork, personalized text, or both. Text overrides support styled segments, fonts, size, color, stroke color, and overflow, shrink, or clip fitting. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
 - **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Choose a supported duration, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
 - **Remove Background**: Isolate the subject of an image onto a transparent background. The cutout remains stored, and the returned signed PNG URL is valid for 7 days. Costs 25 credits, refunded automatically if processing fails. The same cleanup is available inline on both render operations with the per-artwork **Remove Background** toggle.
 
@@ -40,7 +40,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 ### Async Jobs
 
-- **Get Job**: Get the status and result of an async render, upload, video, or 2D mockup job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload and 2D creation). Optionally **Wait for Completion** to poll until the job finishes.
+- **Get Job**: Get the status and result of an async render, upload, video, or photo mockup job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload and photo mockup creation). Optionally **Wait for Completion** to poll until the job finishes.
 - **List Jobs**: List your async render, upload, video, and Photo Mockups jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
 
 ### Webhooks
@@ -152,7 +152,7 @@ while holding a positive `prepaid_balance` and being perfectly able to pay:
 
 ---
 
-### Upload PSD
+### PSD Mockup: Upload
 
 Upload a PSD template from a public URL.
 
@@ -176,7 +176,7 @@ Name: T-Shirt Mockup Front
 
 ---
 
-### List Mockups
+### PSD Mockup: List
 
 List all your uploaded mockup templates with optional filtering and pagination.
 
@@ -204,7 +204,7 @@ Each mockup as a separate item with full details (UUID, name, smart objects, thu
 
 ---
 
-### Get Mockup
+### PSD Mockup: Get
 
 Retrieve detailed information about a specific mockup template.
 
@@ -223,7 +223,7 @@ Complete mockup details including all smart objects, thumbnails, and metadata.
 
 ---
 
-### Update Mockup
+### PSD Mockup: Update
 
 Update the name of a mockup template.
 
@@ -244,13 +244,13 @@ Updated mockup details with the new name.
 
 ---
 
-### Render Mockup
+### PSD Mockup: Render
 
 Generate a mockup by filling smart objects with your designs.
 
 **Parameters:**
 
-- **Mockup UUID** (required): UUID from Upload PSD response
+- **Mockup UUID** (required): UUID from the PSD Mockup: Upload response
 - **Smart Objects** (required): One or more smart objects to fill
   - Smart Object UUID
   - Design URL (PNG, JPG, WebP)
@@ -332,11 +332,11 @@ Image URL: https://cdn.example.com/product-photo.jpg
 }
 ```
 
-The returned signed URL is valid for 7 days and can be fed straight into **Render Mockup** or **2D: Render Mockup** as artwork during that window. The cutout remains stored. Processing costs 25 credits per image and is refunded automatically if it fails. To clean artwork as part of a render instead, use the per-artwork **Remove Background** toggle on either render operation.
+The returned signed URL is valid for 7 days and can be fed straight into **PSD Mockup: Render** or **Photo Mockup: Render** as artwork during that window. The cutout remains stored. Processing costs 25 credits per image and is refunded automatically if it fails. To clean artwork as part of a render instead, use the per-artwork **Remove Background** toggle on either render operation.
 
 ---
 
-### Delete Mockup
+### PSD Mockup: Delete
 
 Delete a specific mockup template.
 
@@ -355,16 +355,16 @@ Deletion confirmation
 
 ---
 
-### 2D Mockup Operations
+### Photo Mockup Operations
 
 Create, prepare, render, and manage reusable mockups from product images without a PSD.
 
-1. **2D: Create Mockup** accepts a public `source_url` or `source_base64`, plus an optional name. By default it waits and returns the ready mockup detail unchanged. Enable **Run Asynchronously** to receive a 202 job with `job_id` and `status_url`, then use **Get Job** when needed.
-2. **2D: Get Mockup** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`. The ready response lists every printable product in `data.surfaces` (addressed by `surface_uuid`), and every print area someone has drawn in `data.quads` (addressed by `print_area_id`).
-3. **2D: List Mockups** returns your 2D mockups with limit, offset, and shopper-customizable filtering.
-4. **2D: Set Print Areas** replaces saved areas with quads made from four `[x, y]` coordinate pairs. It can also send an empty list; the API remains authoritative and accepts that only when the mockup can remain renderable without saved areas.
-5. **2D: Render Mockup** accepts the mockup UUID and one or more ready render targets. Each target names exactly one address: `uuid` for a saved print area, or `surface_uuid` for a surface. Each target also includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, public adjustments, and placement. Export options support PNG, JPG, or WebP from 100 to 10000 pixels, plus quality and optional DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
-6. **2D: Delete Mockup** deletes the selected 2D mockup.
+1. **Photo Mockup: Create** accepts a public `source_url` or `source_base64`, plus an optional name. By default it waits and returns the ready mockup detail unchanged. Enable **Run Asynchronously** to receive a 202 job with `job_id` and `status_url`, then use **Get Job** when needed.
+2. **Photo Mockup: Get** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`. The ready response lists every printable product in `data.surfaces` (addressed by `surface_uuid`), and every print area someone has drawn in `data.quads` (addressed by `print_area_id`).
+3. **Photo Mockup: List** returns your photo mockups with limit, offset, and shopper-customizable filtering.
+4. **Photo Mockup: Set Print Areas** replaces saved areas with quads made from four `[x, y]` coordinate pairs. It can also send an empty list; the API remains authoritative and accepts that only when the mockup can remain renderable without saved areas.
+5. **Photo Mockup: Render** accepts the mockup UUID and one or more ready render targets. Each target names exactly one address: `uuid` for a saved print area, or `surface_uuid` for a surface. Each target also includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, public adjustments, and placement. Export options support PNG, JPG, or WebP from 100 to 10000 pixels, plus quality and optional DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
+6. **Photo Mockup: Delete** deletes the selected photo mockup.
 
 A surface and a print area are separate render targets. Saving a print area on a
 product does not close off the surface under it, so an all-over print and a chest
@@ -382,7 +382,7 @@ Placement is where the two kinds differ:
 Both kinds take position, offset, and rotation. Anything you do not set is not sent,
 so the API decides it.
 
-Create must reach `ready` through **2D: Get Mockup** before **2D: Render Mockup**.
+Create must reach `ready` through **Photo Mockup: Get** before **Photo Mockup: Render**.
 
 ---
 
@@ -412,11 +412,11 @@ The 202 acknowledgement (`job_id`, `kind`, `status`, `status_url`, `estimated_cr
 
 ### Get Job
 
-Track an asynchronous render, upload, video, or 2D mockup job by its `job_id`.
+Track an asynchronous render, upload, video, or photo mockup job by its `job_id`.
 
 **Parameters:**
 
-- **Job ID** (required): the `job_id` from an async render, upload, video, or 2D mockup request
+- **Job ID** (required): the `job_id` from an async render, upload, video, or photo mockup request
 - **Wait for Completion**: poll until a terminal status (`succeeded`, `failed`, `cancelled`)
 - **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
 
@@ -439,7 +439,7 @@ List your async render, upload, video, and Photo Mockups jobs (newest first, key
 **Output:**
 `{ jobs: [...], next_cursor }`.
 
-> **Note:** Bulk "delete all mockups" is intentionally not exposed — the BE gates `DELETE /mockups/all` to dashboard (Bearer/JWT) auth only, so it is not callable with an API key. Delete mockups individually with **Delete Mockup**, or use the SudoMock dashboard.
+> **Note:** Bulk "delete all mockups" is intentionally not exposed: the API accepts `DELETE /psd-mockups/all` only from a dashboard sign-in, so it is not callable with an API key. Delete mockups individually with **PSD Mockup: Delete**, or use the SudoMock dashboard.
 
 ---
 

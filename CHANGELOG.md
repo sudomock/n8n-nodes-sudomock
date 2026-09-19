@@ -5,6 +5,31 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-09-19
+
+### Changed
+
+- The node calls the two mockup families on their own paths:
+  `/api/v1/photo-mockups` for Photo Mockup: Create / Get / List / Set Print
+  Areas / Render / Delete, and `/api/v1/psd-mockups` for PSD Mockup: List /
+  Get / Update / Delete. The earlier paths (`/api/v1/sudoai/2d-mockups` and
+  `/api/v1/mockups`) are still served by the API, so nothing built against
+  them stops working; this package simply no longer sends them.
+- **Get Job kind.** A photo mockup created or rendered asynchronously through
+  this version reports `kind: photo_mockup_create` / `photo_mockup_render`,
+  where earlier versions reported `2d_create` / `2d_render`. A workflow that
+  compares `$json.kind` against the old spellings after Get Job should compare
+  against the new ones. List Jobs already accepts both spellings and returns
+  the same jobs for either.
+- The operation dropdown names the families. The six `2D: ...` entries read
+  `Photo Mockup: Create / Delete / Get / List / Render / Set Print Areas`, and
+  Upload PSD, List Mockups, Get Mockup, Update Mockup, Delete Mockup and
+  Render Mockup read `PSD Mockup: Upload / List / Get / Update / Delete /
+  Render`. Operation values and parameter names are unchanged, so a saved
+  workflow opens on the same operation with the same fields and keeps running
+  without edits. Photo Mockup: Delete now answers with
+  `message: "Photo mockup deleted successfully"`.
+
 ## [0.11.0] - 2026-09-18
 
 ### Added

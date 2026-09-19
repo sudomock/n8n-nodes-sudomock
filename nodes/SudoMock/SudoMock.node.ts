@@ -2572,7 +2572,7 @@ export class SudoMock implements INodeType {
 					returnData.push({
 						json: {
 							success: true,
-							message: 'Photo mockup deleted successfully',
+							message: '2D mockup deleted successfully',
 							mockupUuid,
 							statusCode: 204,
 						} as IDataObject,

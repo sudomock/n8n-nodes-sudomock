@@ -9,9 +9,12 @@ const { SudoMock } = require(NODE_DIST_PATH);
 // ---------------------------------------------------------------------------
 // BACKEND CONTRACT (source of truth for this suite)
 //
-// These paths are the api.sudomock.com public surface, verified against
-// mockup-generator app/main.py (public_router prefix /api/v1/sudoai) and
-// app/api/routes/sudoai_2d.py, plus live probes. They are declared here
+// These paths are the api.sudomock.com public surface: the Photo Mockups
+// family lives under /api/v1/photo-mockups and the PSD family under
+// /api/v1/psd-mockups (mockup-generator app/core/api_paths.py). The earlier
+// spellings (/api/v1/sudoai/2d-mockups and /api/v1/mockups) are still served
+// by the backend for workflows built on older versions of this package, but
+// the node itself emits only the family paths. They are declared here
 // independently of the node so the suite fails when the node drifts away
 // from the backend instead of agreeing with whatever the node happens to send.
 //
@@ -21,23 +24,33 @@ const { SudoMock } = require(NODE_DIST_PATH);
 // redirect, so the node must never emit them.
 // ---------------------------------------------------------------------------
 const API_BASE = 'https://api.sudomock.com/api/v1';
-const PUBLIC_2D_BASE = `${API_BASE}/sudoai/2d-mockups`;
+const PHOTO_MOCKUP_BASE = `${API_BASE}/photo-mockups`;
+const PSD_MOCKUP_BASE = `${API_BASE}/psd-mockups`;
 
 const BACKEND_CONTRACT = {
-	create2DMockup: { method: 'POST', url: () => PUBLIC_2D_BASE },
-	list2DMockups: { method: 'GET', url: () => PUBLIC_2D_BASE },
-	get2DMockup: { method: 'GET', url: (id) => `${PUBLIC_2D_BASE}/${id}` },
-	delete2DMockup: { method: 'DELETE', url: (id) => `${PUBLIC_2D_BASE}/${id}` },
+	create2DMockup: { method: 'POST', url: () => PHOTO_MOCKUP_BASE },
+	list2DMockups: { method: 'GET', url: () => PHOTO_MOCKUP_BASE },
+	get2DMockup: { method: 'GET', url: (id) => `${PHOTO_MOCKUP_BASE}/${id}` },
+	delete2DMockup: { method: 'DELETE', url: (id) => `${PHOTO_MOCKUP_BASE}/${id}` },
 	set2DPrintAreas: {
 		method: 'PUT',
-		url: (id) => `${PUBLIC_2D_BASE}/${id}/print-areas`,
+		url: (id) => `${PHOTO_MOCKUP_BASE}/${id}/print-areas`,
 	},
 	// The mockup id travels in the PATH. The body carries print_areas and
 	// export_options only; mockup_uuid in the body is not part of the contract.
 	render2DMockup: {
 		method: 'POST',
-		url: (id) => `${PUBLIC_2D_BASE}/${id}/render`,
+		url: (id) => `${PHOTO_MOCKUP_BASE}/${id}/render`,
 	},
+};
+
+// The PSD family, pinned the same way. The parameter names are the ones a
+// saved workflow already carries; only the path moved.
+const PSD_BACKEND_CONTRACT = {
+	listMockups: { method: 'GET', url: () => PSD_MOCKUP_BASE },
+	getMockup: { method: 'GET', url: (id) => `${PSD_MOCKUP_BASE}/${id}` },
+	updateMockup: { method: 'PATCH', url: (id) => `${PSD_MOCKUP_BASE}/${id}` },
+	deleteMockup: { method: 'DELETE', url: (id) => `${PSD_MOCKUP_BASE}/${id}` },
 };
 
 // Path fragments that must never appear in a URL the node builds.
@@ -51,6 +64,11 @@ const RETIRED_OR_INTERNAL_FRAGMENTS = [
 	'/presign-masks',
 	'/mask/commit',
 ];
+
+// Earlier spellings of the two family paths. The backend keeps serving them
+// for workflows built on older versions, but this node emits only the family
+// paths, so the built node must not carry them.
+const EARLIER_PATH_SPELLINGS = ['/api/v1/sudoai/2d-mockups', '/api/v1/mockups'];
 
 const RENDER_BODY_FORBIDDEN_KEYS = ['mockup_uuid', 'mockupUuid', 'uuid'];
 
@@ -108,6 +126,37 @@ test('2D operations are well formed without removing existing operations', () =>
 		assert.ok(
 			property.displayOptions?.show?.operation,
 			`${property.name} has no operation display option`,
+		);
+	}
+});
+
+const PSD_MOCKUP_OPERATIONS = ['uploadPsd', 'render', ...Object.keys(PSD_BACKEND_CONTRACT)];
+
+// The dropdown names the two families. Values stay what they were so a saved
+// workflow keeps resolving its operation; only the words changed.
+test('operation labels name the two families and keep their saved values', () => {
+	const properties = new SudoMock().description.properties;
+	const operation = properties.find((property) => property.name === 'operation');
+	const byValue = new Map(operation.options.map((option) => [option.value, option]));
+
+	for (const value of twoDOperations) {
+		const option = byValue.get(value);
+		assert.ok(option, `missing operation ${value}`);
+		assert.ok(option.name.startsWith('Photo Mockup: '), `${value} is labelled ${option.name}`);
+		for (const text of [option.name, option.description, option.action]) {
+			assert.doesNotMatch(text, /\b2D\b/, `${value} still says 2D: ${text}`);
+		}
+	}
+	for (const value of PSD_MOCKUP_OPERATIONS) {
+		const option = byValue.get(value);
+		assert.ok(option, `missing operation ${value}`);
+		assert.ok(option.name.startsWith('PSD Mockup: '), `${value} is labelled ${option.name}`);
+	}
+	for (const property of properties.filter((item) => item.name.startsWith('twoD'))) {
+		assert.doesNotMatch(
+			JSON.stringify(property),
+			/\b2D\b|2d_create|2d_render/,
+			`${property.name} still describes the 2D spelling`,
 		);
 	}
 });
@@ -595,7 +644,7 @@ test('a surface takes a drawn box, but never alongside a percentage', async () =
 	);
 });
 
-test('2D operations call the documented backend paths', async (t) => {
+test('photo mockup operations call the documented backend paths', async (t) => {
 	for (const testCase of cases) {
 		await t.test(testCase.name ?? testCase.operation, async () => {
 			const contract = BACKEND_CONTRACT[testCase.operation];
@@ -628,15 +677,15 @@ test('2D operations call the documented backend paths', async (t) => {
 	}
 });
 
-test('every 2D operation targets the plural collection, never a retired path', async (t) => {
+test('every photo mockup operation targets the family collection, never a retired path', async (t) => {
 	for (const testCase of cases) {
 		await t.test(testCase.name ?? testCase.operation, async () => {
 			const { calls } = await runOperation(testCase);
 			const url = calls[0].options.url;
 
 			assert.ok(
-				url.startsWith(`${PUBLIC_2D_BASE}/`) || url === PUBLIC_2D_BASE,
-				`${testCase.operation} must call ${PUBLIC_2D_BASE}, got ${url}`,
+				url.startsWith(`${PHOTO_MOCKUP_BASE}/`) || url === PHOTO_MOCKUP_BASE,
+				`${testCase.operation} must call ${PHOTO_MOCKUP_BASE}, got ${url}`,
 			);
 			for (const fragment of RETIRED_OR_INTERNAL_FRAGMENTS) {
 				assert.ok(
@@ -654,6 +703,68 @@ test('every 2D operation targets the plural collection, never a retired path', a
 	}
 });
 
+const psdCases = [
+	{
+		operation: 'listMockups',
+		parameters: { returnAll: false, limit: 20, additionalOptions: { name: 'Tee' } },
+		expected: { qs: { limit: '20', offset: '0', name: 'Tee' }, json: true },
+	},
+	{
+		operation: 'getMockup',
+		parameters: { getMockupUuid: MOCKUP_ID },
+		pathId: MOCKUP_ID,
+		expected: { json: true },
+	},
+	{
+		operation: 'updateMockup',
+		parameters: { updateMockupUuid: MOCKUP_ID, newName: 'Tee Front' },
+		pathId: MOCKUP_ID,
+		expected: { body: { name: 'Tee Front' }, json: true },
+	},
+	{
+		operation: 'deleteMockup',
+		parameters: { deleteMockupUuid: MOCKUP_ID },
+		pathId: MOCKUP_ID,
+		expected: {},
+	},
+];
+
+test('PSD mockup operations call the documented backend paths', async (t) => {
+	for (const testCase of psdCases) {
+		await t.test(testCase.operation, async () => {
+			const contract = PSD_BACKEND_CONTRACT[testCase.operation];
+			const { calls, output, response } = await runOperation(testCase);
+
+			assert.deepEqual(calls, [
+				{
+					credential: 'sudoMockApi',
+					options: {
+						method: contract.method,
+						url: contract.url(testCase.pathId),
+						...testCase.expected,
+					},
+				},
+			]);
+			const url = calls[0].options.url;
+			assert.ok(
+				url.startsWith(`${PSD_MOCKUP_BASE}/`) || url === PSD_MOCKUP_BASE,
+				`${testCase.operation} must call ${PSD_MOCKUP_BASE}, got ${url}`,
+			);
+
+			if (testCase.operation === 'deleteMockup') {
+				assert.deepEqual(output[0][0].json, {
+					success: true,
+					message: 'Mockup deleted successfully',
+					mockupUuid: MOCKUP_ID,
+					statusCode: 204,
+				});
+			} else if (testCase.operation !== 'listMockups') {
+				assert.strictEqual(output[0][0].json, response);
+			}
+		});
+	}
+});
+
 test('render sends the mockup id in the path only, never in the body', async () => {
 	const renderCases = cases.filter((testCase) => testCase.operation === 'render2DMockup');
 	assert.ok(renderCases.length > 0);
@@ -662,7 +773,7 @@ test('render sends the mockup id in the path only, never in the body', async () 
 		const { calls } = await runOperation(testCase);
 		const { url, body } = calls[0].options;
 
-		assert.equal(url, `${PUBLIC_2D_BASE}/${MOCKUP_ID}/render`);
+		assert.equal(url, `${PHOTO_MOCKUP_BASE}/${MOCKUP_ID}/render`);
 		for (const key of RENDER_BODY_FORBIDDEN_KEYS) {
 			assert.ok(
 				!Object.prototype.hasOwnProperty.call(body, key),
@@ -1207,29 +1318,34 @@ test('the trigger offers the photo-mockup event names and pins its endpoint to t
 	assert.deepEqual(staticData, { webhookId: 'wh-1', webhookSecret: 'whsec' });
 });
 
-test('the built node contains no retired or internal API paths', () => {
+test('the built node carries only the family API paths', () => {
 	const source = fs.readFileSync(NODE_DIST_PATH, 'utf8');
 
-	for (const fragment of RETIRED_OR_INTERNAL_FRAGMENTS) {
-		assert.ok(
-			!source.includes(fragment),
-			`built node still references retired or internal path fragment ${fragment}`,
-		);
+	for (const fragment of [...RETIRED_OR_INTERNAL_FRAGMENTS, ...EARLIER_PATH_SPELLINGS]) {
+		assert.ok(!source.includes(fragment), `built node still references ${fragment}`);
 	}
 
-	const sudoaiUrls = [
-		...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/sudoai[^'"`\s)]*/g),
+	const photoUrls = [
+		...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/photo-mockups[^'"`\s)]*/g),
 	].map((match) => match[0]);
-	assert.ok(sudoaiUrls.length > 0, 'expected the node to build 2D mockup URLs');
-
-	const allowedShapes = new Set([
-		PUBLIC_2D_BASE,
-		`${PUBLIC_2D_BASE}/\${mockupUuid}`,
-		`${PUBLIC_2D_BASE}/\${mockupUuid}/print-areas`,
-		`${PUBLIC_2D_BASE}/\${mockupUuid}/render`,
+	assert.ok(photoUrls.length > 0, 'expected the node to build photo mockup URLs');
+	const allowedPhotoShapes = new Set([
+		PHOTO_MOCKUP_BASE,
+		`${PHOTO_MOCKUP_BASE}/\${mockupUuid}`,
+		`${PHOTO_MOCKUP_BASE}/\${mockupUuid}/print-areas`,
+		`${PHOTO_MOCKUP_BASE}/\${mockupUuid}/render`,
 	]);
-	for (const url of sudoaiUrls) {
-		assert.ok(allowedShapes.has(url), `unexpected 2D URL in the built node: ${url}`);
+	for (const url of photoUrls) {
+		assert.ok(allowedPhotoShapes.has(url), `unexpected photo mockup URL in the built node: ${url}`);
+	}
+
+	const psdUrls = [
+		...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/psd-mockups[^'"`\s)]*/g),
+	].map((match) => match[0]);
+	assert.ok(psdUrls.length > 0, 'expected the node to build PSD mockup URLs');
+	const allowedPsdShapes = new Set([PSD_MOCKUP_BASE, `${PSD_MOCKUP_BASE}/\${mockupUuid}`]);
+	for (const url of psdUrls) {
+		assert.ok(allowedPsdShapes.has(url), `unexpected PSD mockup URL in the built node: ${url}`);
 	}
 });
 

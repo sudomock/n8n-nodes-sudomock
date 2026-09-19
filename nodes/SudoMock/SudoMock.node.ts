@@ -108,7 +108,7 @@ export class SudoMock implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
 		description:
-			'Generate PSD and 2D mockups and product videos for Print-on-Demand automation. Upload PSDs, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
+			'Generate PSD mockups, photo mockups and product videos for Print-on-Demand automation. Upload PSDs, turn product photos into mockups, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
 		defaults: {
 			name: 'SudoMock',
 		},
@@ -132,52 +132,10 @@ export class SudoMock implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: '2D: Create Mockup',
-						value: 'create2DMockup',
-						description: 'Create a 2D mockup now or queue it for background processing',
-						action: 'Create a 2D mockup',
-					},
-					{
-						name: '2D: Delete Mockup',
-						value: 'delete2DMockup',
-						description: 'Delete a 2D mockup',
-						action: 'Delete a 2D mockup',
-					},
-					{
-						name: '2D: Get Mockup',
-						value: 'get2DMockup',
-						description: 'Get the status and addressable render targets of a 2D mockup',
-						action: 'Get a 2D mockup',
-					},
-					{
-						name: '2D: List Mockups',
-						value: 'list2DMockups',
-						description: 'List your 2D mockups',
-						action: 'List 2D mockups',
-					},
-					{
-						name: '2D: Render Mockup',
-						value: 'render2DMockup',
-						description: 'Render artwork on a 2D mockup for 5 credits',
-						action: 'Render a 2D mockup',
-					},
-					{
-						name: '2D: Set Print Areas',
-						value: 'set2DPrintAreas',
-						description: 'Replace or clear the saved print area quads for a 2D mockup',
-						action: 'Set 2D print areas',
-					},
-					{
 						name: 'Artwork: Delete Stored Files',
 						value: 'deleteArtworks',
 						description: 'Delete stored order artwork by URL or mockup UUID',
 						action: 'Delete stored artwork',
-					},
-					{
-						name: 'Delete Mockup',
-						value: 'deleteMockup',
-						description: 'Delete a specific mockup template',
-						action: 'Delete a mockup',
 					},
 					{
 						name: 'Font: Delete Custom Font',
@@ -217,22 +175,82 @@ export class SudoMock implements INodeType {
 						action: 'Get a job',
 					},
 					{
-						name: 'Get Mockup',
-						value: 'getMockup',
-						description: 'Get details of a specific mockup template',
-						action: 'Get mockup details',
-					},
-					{
 						name: 'List Jobs',
 						value: 'listJobs',
 						description: 'List your async render, upload, and video jobs',
 						action: 'List jobs',
 					},
 					{
-						name: 'List Mockups',
+						name: 'Photo Mockup: Create',
+						value: 'create2DMockup',
+						description: 'Create a photo mockup now or queue it for background processing',
+						action: 'Create a photo mockup',
+					},
+					{
+						name: 'Photo Mockup: Delete',
+						value: 'delete2DMockup',
+						description: 'Delete a photo mockup',
+						action: 'Delete a photo mockup',
+					},
+					{
+						name: 'Photo Mockup: Get',
+						value: 'get2DMockup',
+						description: 'Get the status and addressable render targets of a photo mockup',
+						action: 'Get a photo mockup',
+					},
+					{
+						name: 'Photo Mockup: List',
+						value: 'list2DMockups',
+						description: 'List your photo mockups',
+						action: 'List photo mockups',
+					},
+					{
+						name: 'Photo Mockup: Render',
+						value: 'render2DMockup',
+						description: 'Render artwork on a photo mockup for 5 credits',
+						action: 'Render a photo mockup',
+					},
+					{
+						name: 'Photo Mockup: Set Print Areas',
+						value: 'set2DPrintAreas',
+						description: 'Replace or clear the saved print area quads for a photo mockup',
+						action: 'Set photo mockup print areas',
+					},
+					{
+						name: 'PSD Mockup: Delete',
+						value: 'deleteMockup',
+						description: 'Delete a specific PSD mockup template',
+						action: 'Delete a PSD mockup',
+					},
+					{
+						name: 'PSD Mockup: Get',
+						value: 'getMockup',
+						description: 'Get details of a specific PSD mockup template',
+						action: 'Get PSD mockup details',
+					},
+					{
+						name: 'PSD Mockup: List',
 						value: 'listMockups',
-						description: 'List all your uploaded mockup templates',
-						action: 'List mockups',
+						description: 'List all your uploaded PSD mockup templates',
+						action: 'List PSD mockups',
+					},
+					{
+						name: 'PSD Mockup: Render',
+						value: 'render',
+						description: 'Render a PSD mockup with your design',
+						action: 'Render a PSD mockup',
+					},
+					{
+						name: 'PSD Mockup: Update',
+						value: 'updateMockup',
+						description: 'Update PSD mockup template name',
+						action: 'Update PSD mockup name',
+					},
+					{
+						name: 'PSD Mockup: Upload',
+						value: 'uploadPsd',
+						description: 'Upload a PSD template from URL',
+						action: 'Upload a PSD template',
 					},
 					{
 						name: 'Remove Background',
@@ -242,28 +260,10 @@ export class SudoMock implements INodeType {
 						action: 'Remove an image background',
 					},
 					{
-						name: 'Render Mockup',
-						value: 'render',
-						description: 'Render mockup with your design',
-						action: 'Render a mockup',
-					},
-					{
 						name: 'Render Video',
 						value: 'renderVideo',
 						description: 'Turn a mockup into a short product video (always async)',
 						action: 'Render a video',
-					},
-					{
-						name: 'Update Mockup',
-						value: 'updateMockup',
-						description: 'Update mockup template name',
-						action: 'Update mockup name',
-					},
-					{
-						name: 'Upload PSD',
-						value: 'uploadPsd',
-						description: 'Upload a PSD template from URL',
-						action: 'Upload a PSD template',
 					},
 					{
 						name: 'Webhook: Create Endpoint',
@@ -336,7 +336,7 @@ export class SudoMock implements INodeType {
 			},
 
 			// ============================================
-			// 2D MOCKUP PARAMETERS
+			// PHOTO MOCKUP PARAMETERS
 			// ============================================
 			{
 				displayName: 'Source Type',
@@ -351,16 +351,16 @@ export class SudoMock implements INodeType {
 					{
 						name: 'Image URL',
 						value: 'url',
-						description: 'Public image URL for the new 2D mockup',
+						description: 'Public image URL for the new photo mockup',
 					},
 					{
 						name: 'Base64 Image',
 						value: 'base64',
-						description: 'Base64 image data for the new 2D mockup',
+						description: 'Base64 image data for the new photo mockup',
 					},
 				],
 				default: 'url',
-				description: 'Image source for the new 2D mockup',
+				description: 'Image source for the new photo mockup',
 			},
 			{
 				displayName: 'Source URL',
@@ -375,7 +375,7 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: 'https://cdn.example.com/product.png',
-				description: 'Public image URL for the new 2D mockup',
+				description: 'Public image URL for the new photo mockup',
 			},
 			{
 				displayName: 'Source Base64',
@@ -389,7 +389,7 @@ export class SudoMock implements INodeType {
 					},
 				},
 				default: '',
-				description: 'Base64 image data for the new 2D mockup',
+				description: 'Base64 image data for the new photo mockup',
 			},
 			{
 				displayName: 'Name',
@@ -402,7 +402,7 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: 'T-Shirt Front',
-				description: 'Optional human-readable name for the new 2D mockup',
+				description: 'Optional human-readable name for the new photo mockup',
 			},
 			{
 				displayName: 'Run Asynchronously',
@@ -410,7 +410,7 @@ export class SudoMock implements INodeType {
 				type: 'boolean',
 				displayOptions: { show: { operation: ['create2DMockup'] } },
 				default: false,
-				description: 'Whether to queue creation and return a job_id (kind: 2d_create) immediately',
+				description: 'Whether to queue creation and return a job_id (kind: photo_mockup_create) immediately',
 			},
 			{
 				displayName: 'Limit',
@@ -419,7 +419,7 @@ export class SudoMock implements INodeType {
 				typeOptions: { minValue: 1, maxValue: 100 },
 				displayOptions: { show: { operation: ['list2DMockups'] } },
 				default: 50,
-				description: 'Number of 2D mockups to return from 1 to 100',
+				description: 'Number of photo mockups to return from 1 to 100',
 			},
 			{
 				displayName: 'Offset',
@@ -428,7 +428,7 @@ export class SudoMock implements INodeType {
 				typeOptions: { minValue: 0 },
 				displayOptions: { show: { operation: ['list2DMockups'] } },
 				default: 0,
-				description: 'Number of 2D mockups to skip',
+				description: 'Number of photo mockups to skip',
 			},
 			{
 				displayName: 'Customizable Only',
@@ -450,7 +450,7 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: 'c315f78f-d2c7-4541-b240-a9372842de94',
-				description: 'UUID of the 2D mockup to get, set print areas for, render, or delete',
+				description: 'UUID of the photo mockup to get, set print areas for, render, or delete',
 			},
 			{
 				displayName: 'Print Areas',
@@ -791,7 +791,7 @@ export class SudoMock implements INodeType {
 									},
 								},
 								default: '',
-								description: 'The print_area_id returned in data.quads by 2D: Get Mockup',
+								description: 'The print_area_id returned in data.quads by Photo Mockup: Get',
 							},
 							{
 								displayName: 'Surface Placement',
@@ -886,7 +886,7 @@ export class SudoMock implements INodeType {
 									},
 								},
 								default: '',
-								description: 'The surface_uuid returned in data.surfaces by 2D: Get Mockup',
+								description: 'The surface_uuid returned in data.surfaces by Photo Mockup: Get',
 							},
 							{
 								displayName: 'Target Type',
@@ -923,7 +923,7 @@ export class SudoMock implements INodeType {
 					},
 				},
 				default: {},
-				description: 'Output image settings for the rendered 2D mockup',
+				description: 'Output image settings for the rendered photo mockup',
 				options: [
 					{
 						displayName: 'Image Format',
@@ -973,7 +973,7 @@ export class SudoMock implements INodeType {
 				displayOptions: { show: { operation: ['render2DMockup'] } },
 				default: false,
 				description:
-					'Whether to queue the render and return a job_id (kind: 2d_render) immediately',
+					'Whether to queue the render and return a job_id (kind: photo_mockup_render) immediately',
 			},
 
 			// ============================================
@@ -1630,7 +1630,7 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: '9d4e2b51-0c7a-4f8e-bb1c-2a6f9e3d8c10',
-				description: 'The job_id returned by an async render, upload, video, or 2D mockup request',
+				description: 'The job_id returned by an async render, upload, video, or photo mockup request',
 			},
 			{
 				displayName: 'Wait for Completion',
@@ -2291,7 +2291,7 @@ export class SudoMock implements INodeType {
 				}
 
 				// ========================================
-				// 2D: CREATE MOCKUP
+				// PHOTO MOCKUP: CREATE
 				// ========================================
 				else if (operation === 'create2DMockup') {
 					const sourceMode = this.getNodeParameter('twoDSourceMode', i) as string;
@@ -2324,7 +2324,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'POST',
-							url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
+							url: 'https://api.sudomock.com/api/v1/photo-mockups',
 							body,
 							json: true,
 						},
@@ -2336,7 +2336,7 @@ export class SudoMock implements INodeType {
 				}
 
 				// ========================================
-				// 2D: GET MOCKUP
+				// PHOTO MOCKUP: GET
 				// ========================================
 				else if (operation === 'get2DMockup') {
 					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
@@ -2345,7 +2345,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'GET',
-							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}`,
+							url: `https://api.sudomock.com/api/v1/photo-mockups/${mockupUuid}`,
 							json: true,
 						},
 					);
@@ -2356,7 +2356,7 @@ export class SudoMock implements INodeType {
 				}
 
 				// ========================================
-				// 2D: LIST MOCKUPS
+				// PHOTO MOCKUP: LIST
 				// ========================================
 				else if (operation === 'list2DMockups') {
 					const limit = this.getNodeParameter('twoDListLimit', i, 20) as number;
@@ -2371,7 +2371,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'GET',
-							url: 'https://api.sudomock.com/api/v1/sudoai/2d-mockups',
+							url: 'https://api.sudomock.com/api/v1/photo-mockups',
 							qs: {
 								limit,
 								offset,
@@ -2387,7 +2387,7 @@ export class SudoMock implements INodeType {
 				}
 
 				// ========================================
-				// 2D: SET PRINT AREAS
+				// PHOTO MOCKUP: SET PRINT AREAS
 				// ========================================
 				else if (operation === 'set2DPrintAreas') {
 					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
@@ -2402,7 +2402,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'PUT',
-							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}/print-areas`,
+							url: `https://api.sudomock.com/api/v1/photo-mockups/${mockupUuid}/print-areas`,
 							body,
 							json: true,
 						},
@@ -2414,7 +2414,7 @@ export class SudoMock implements INodeType {
 				}
 
 				// ========================================
-				// 2D: RENDER MOCKUP
+				// PHOTO MOCKUP: RENDER
 				// ========================================
 				else if (operation === 'render2DMockup') {
 					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
@@ -2549,7 +2549,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'POST',
-							url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}/render`,
+							url: `https://api.sudomock.com/api/v1/photo-mockups/${mockupUuid}/render`,
 							body,
 							json: true,
 						},
@@ -2561,18 +2561,18 @@ export class SudoMock implements INodeType {
 				}
 
 				// ========================================
-				// 2D: DELETE MOCKUP
+				// PHOTO MOCKUP: DELETE
 				// ========================================
 				else if (operation === 'delete2DMockup') {
 					const mockupUuid = this.getNodeParameter('twoDMockupUuid', i) as string;
 					await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
 						method: 'DELETE',
-						url: `https://api.sudomock.com/api/v1/sudoai/2d-mockups/${mockupUuid}`,
+						url: `https://api.sudomock.com/api/v1/photo-mockups/${mockupUuid}`,
 					});
 					returnData.push({
 						json: {
 							success: true,
-							message: '2D mockup deleted successfully',
+							message: 'Photo mockup deleted successfully',
 							mockupUuid,
 							statusCode: 204,
 						} as IDataObject,
@@ -3453,7 +3453,7 @@ export class SudoMock implements INodeType {
 							'sudoMockApi',
 							{
 								method: 'GET',
-								url: 'https://api.sudomock.com/api/v1/mockups',
+								url: 'https://api.sudomock.com/api/v1/psd-mockups',
 								qs: queryParams,
 								json: true,
 							},
@@ -3489,7 +3489,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'GET',
-							url: `https://api.sudomock.com/api/v1/mockups/${mockupUuid}`,
+							url: `https://api.sudomock.com/api/v1/psd-mockups/${mockupUuid}`,
 							json: true,
 						},
 					);
@@ -3512,7 +3512,7 @@ export class SudoMock implements INodeType {
 						'sudoMockApi',
 						{
 							method: 'PATCH',
-							url: `https://api.sudomock.com/api/v1/mockups/${mockupUuid}`,
+							url: `https://api.sudomock.com/api/v1/psd-mockups/${mockupUuid}`,
 							body: {
 								name: newName,
 							},
@@ -3534,7 +3534,7 @@ export class SudoMock implements INodeType {
 
 					await this.helpers.httpRequestWithAuthentication.call(this, 'sudoMockApi', {
 						method: 'DELETE',
-						url: `https://api.sudomock.com/api/v1/mockups/${mockupUuid}`,
+						url: `https://api.sudomock.com/api/v1/psd-mockups/${mockupUuid}`,
 						// No json: true - DELETE returns 204 No Content (no body)
 					});
 

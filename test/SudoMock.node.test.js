@@ -668,7 +668,7 @@ test('photo mockup operations call the documented backend paths', async (t) => {
 			} else {
 				assert.deepEqual(output[0][0].json, {
 					success: true,
-					message: 'Photo mockup deleted successfully',
+					message: '2D mockup deleted successfully',
 					mockupUuid: MOCKUP_ID,
 					statusCode: 204,
 				});

@@ -163,9 +163,15 @@ Before using these workflows, you'll need:
 Every account gets a **1000 requests/minute** base rate limit. What changes between
 plans is how many renders run at once.
 
-**Pay as you go** is the entry tier and needs no subscription: $0.05 per PSD render,
-so $1 covers 20, with a $5 minimum first payment. Photo mockups and video are priced by
-what they cost to produce rather than at the flat render rate.
+**Plans** start at $25/month for 5,000 renders, which is $0.005 per render, and buy a
+monthly credit allowance plus more template storage on the higher tiers. Parallel
+renders are 3 on Starter, 10 on Pro, and 25 on Scale. The lowest self-serve rate is
+$2.42 per 1,000 renders on the annual Pro 50K plan. **Without any subscription at
+all** it is $0.05 per PSD render with a $5 minimum first payment, so $1 covers 20,
+which is the same rate standalone mockup APIs charge on a paid plan and the highest
+per-render rate SudoMock charges. Photo mockups and video are priced by what they
+cost to produce rather than at the flat render rate.
+[See full pricing](https://sudomock.com/pricing)
 
 **Before a card is verified**, a new account is in trial:
 - 500 credits, granted once, and they do not renew
@@ -179,12 +185,6 @@ the watermark and the width cap come off, stored templates go to 150, renders ru
 at a time alongside 10 concurrent uploads, and templates stop being removed for
 sitting idle. It does not change your tier: trial is the unfunded state of pay as
 you go, not a separate plan.
-
-**Volume plans** start at $25/month for 5,000 renders and buy a monthly credit
-allowance at a lower rate per render, plus more template storage on the higher
-tiers. Parallel renders are 3 on Starter, 10 on Pro, and 25 on Scale. The lowest
-self-serve rate is $2.42 per 1,000 renders on the annual Pro 50K plan.
-[See full pricing](https://sudomock.com/pricing)
 
 ### Installation
 

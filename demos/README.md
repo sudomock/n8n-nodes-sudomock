@@ -163,8 +163,8 @@ Before using these workflows, you'll need:
 Every account gets a **1000 requests/minute** base rate limit. What changes between
 plans is how many renders run at once.
 
-**Pay as you go** is the entry tier and needs no subscription: $0.10 per PSD render,
-so $1 covers 10, with a $5 minimum first payment. Photo mockups and video are priced by
+**Pay as you go** is the entry tier and needs no subscription: $0.05 per PSD render,
+so $1 covers 20, with a $5 minimum first payment. Photo mockups and video are priced by
 what they cost to produce rather than at the flat render rate.
 
 **Before a card is verified**, a new account is in trial:

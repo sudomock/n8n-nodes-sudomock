@@ -211,8 +211,8 @@ pm2 restart n8n
 ## 📚 Learn More
 
 ### SudoMock Resources
-- [API Documentation](https://sudomock.com/docs/api)
-- [PSD Template Guidelines](https://sudomock.com/docs/templates)
+- [API Documentation](https://sudomock.com/docs/api-reference/introduction)
+- [PSD Template Guidelines](https://sudomock.com/docs/psd-mockups/preparing-a-psd)
 - [Pricing & Rate Limits](https://sudomock.com/pricing)
 
 ### n8n Resources

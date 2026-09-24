@@ -2,7 +2,7 @@
 
 n8n community node for the SudoMock API. Integrate mockup rendering into your n8n workflows for Print-on-Demand automation.
 
-[SudoMock](https://sudomock.com) | [Documentation](https://sudomock.com/docs) | [API Reference](https://sudomock.com/docs/api)
+[SudoMock](https://sudomock.com) | [Documentation](https://sudomock.com/docs) | [API Reference](https://sudomock.com/docs/api-reference/introduction)
 
 ## Features
 
@@ -59,7 +59,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Webhook: Replay Failed Deliveries**
 - **Webhook: Events Feed** (recent deliveries across all of your endpoints)
 
-Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `photo_mockup.ready`, `photo_mockup.rejected`, `photo_mockup.failed`, `photo_mockup_render.succeeded`, `photo_mockup_render.failed`, `webhook.test`. Endpoints created by earlier versions of this package are pinned to the legacy spelling of the five Photo Mockups events (`2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`) and keep receiving those names; both spellings can be selected when subscribing, the endpoint's **Event Naming** pin decides what is delivered, and **Webhook: Update Endpoint** can re-pin it. Deliveries are signed; see https://sudomock.com/docs/api/webhooks for verification details.
+Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `photo_mockup.ready`, `photo_mockup.rejected`, `photo_mockup.failed`, `photo_mockup_render.succeeded`, `photo_mockup_render.failed`, `webhook.test`. Endpoints created by earlier versions of this package are pinned to the legacy spelling of the five Photo Mockups events (`2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`) and keep receiving those names; both spellings can be selected when subscribing, the endpoint's **Event Naming** pin decides what is delivered, and **Webhook: Update Endpoint** can re-pin it. Deliveries are signed; see https://sudomock.com/docs/webhooks/overview for verification details.
 
 ## Installation
 
@@ -749,7 +749,7 @@ pnpm lintfix
 ## Resources
 
 - [SudoMock Website](https://sudomock.com)
-- [API Documentation](https://sudomock.com/docs/api)
+- [API Documentation](https://sudomock.com/docs/api-reference/introduction)
 - [n8n Documentation](https://docs.n8n.io)
 - [Report Issues](https://github.com/sudomock/n8n-nodes-sudomock/issues)
 

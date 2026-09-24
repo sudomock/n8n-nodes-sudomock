@@ -315,7 +315,7 @@ All plans have a base rate limit of **1000 requests per minute** with burst capa
 ## Support
 
 - **Documentation**: [sudomock.com/docs](https://sudomock.com/docs)
-- **API Reference**: [sudomock.com/docs/api](https://sudomock.com/docs/api)
+- **API Reference**: [sudomock.com/docs/api-reference/introduction](https://sudomock.com/docs/api-reference/introduction)
 - **Email Support**: hello@sudomock.com
 - **GitHub Issues**: [github.com/sudomock/n8n-nodes-sudomock/issues](https://github.com/sudomock/n8n-nodes-sudomock/issues)
 

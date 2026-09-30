@@ -120,7 +120,11 @@ test('2D operations are well formed without removing existing operations', () =>
 		assert.ok(!values.includes(value), `retired operation ${value} is still exposed`);
 	}
 
-	const propertyNames = properties.map((property) => property.name);
+	// Each version/resource has its own Operation selector. Other parameter
+	// names must stay unique so saved workflow values remain unambiguous.
+	const propertyNames = properties
+		.filter((property) => property.name !== 'operation')
+		.map((property) => property.name);
 	assert.equal(new Set(propertyNames).size, propertyNames.length);
 	for (const property of properties.filter((item) => item.name.startsWith('twoD'))) {
 		assert.ok(

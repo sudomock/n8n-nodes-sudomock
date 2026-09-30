@@ -39,7 +39,7 @@ export const WEBHOOK_EVENT_NAMING_OPTIONS = [
 		name: 'Legacy',
 		value: 'legacy',
 		description:
-			'Deliver the older names: 2d_mockup.*, 2d_render.*, kind 2d_create or 2d_render. Only for a receiver written against them',
+			'Deliver the older names: 2d_mockup.*, 2d_render.*, kind 2d_create or 2d_render. Only for a receiver written against them.',
 	},
 ];
 

@@ -27,7 +27,7 @@ export class SudoMockTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SudoMock Trigger',
 		name: 'sudoMockTrigger',
-		icon: 'file:sudomock.svg',
+		icon: { light: 'file:sudomock.svg', dark: 'file:sudomock.dark.svg' },
 		group: ['trigger'],
 		version: 1,
 		subtitle:
@@ -36,10 +36,8 @@ export class SudoMockTrigger implements INodeType {
 		defaults: { name: 'SudoMock Trigger' },
 		inputs: [],
 		outputs: [NodeConnectionTypes.Main],
-		// usableAsTool YOK: trigger dugumleri AI araci olarak cagrilamaz ve bu
-		// bayrak arac seciciyi kirletiyor -- n8n inceleme geri bildirimi,
-		// 0.10.0 reddi (2026-08-20). Normal SudoMock dugumundeki bayrak DOGRU
-		// ve yerinde duruyor; yalniz trigger'dan kaldirildi.
+		// Trigger nodes cannot be invoked as AI tools. Keep usableAsTool only on
+		// the regular SudoMock node so this trigger stays out of the tool picker.
 		credentials: [{ name: 'sudoMockApi', required: true }],
 		webhooks: [
 			{

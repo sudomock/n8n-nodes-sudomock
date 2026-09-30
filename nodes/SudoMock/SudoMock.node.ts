@@ -12,6 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { WEBHOOK_EVENT_NAMING_OPTIONS, WEBHOOK_EVENT_OPTIONS } from './webhooks';
+import { resourceProperties } from './resources';
 
 const TERMINAL_JOB_STATUSES = ['succeeded', 'failed', 'cancelled'];
 
@@ -103,9 +104,9 @@ export class SudoMock implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SudoMock',
 		name: 'sudoMock',
-		icon: 'file:sudomock.svg',
+		icon: { light: 'file:sudomock.svg', dark: 'file:sudomock.dark.svg' },
 		group: ['transform'],
-		version: 1,
+		version: [1, 2],
 		subtitle: '={{$parameter["operation"]}}',
 		description:
 			'Generate PSD mockups, photo mockups and product videos for Print-on-Demand automation. Upload PSDs, turn product photos into mockups, render with your designs, render videos, run renders asynchronously, track jobs, and manage webhooks.',
@@ -123,9 +124,9 @@ export class SudoMock implements INodeType {
 		usableAsTool: true,
 		properties: [
 			// ============================================
-			// OPERATION SELECT
+			// RESOURCE AND OPERATION SELECTORS
 			// ============================================
-			{
+			...resourceProperties({
 				displayName: 'Operation',
 				name: 'operation',
 				type: 'options',
@@ -333,7 +334,7 @@ export class SudoMock implements INodeType {
 					},
 				],
 				default: 'render',
-			},
+			}),
 
 			// ============================================
 			// PHOTO MOCKUP PARAMETERS

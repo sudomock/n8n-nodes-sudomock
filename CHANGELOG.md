@@ -5,6 +5,29 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-09-30
+
+### Changed
+
+- New SudoMock nodes use node version 2, with a Resource selector grouping the
+  33 existing operations into Account, Artwork, Font, Image, Job, Photo Mockup,
+  PSD Mockup, Video, and Webhook. Operation values, parameter names, request
+  paths, and execution behavior are unchanged.
+- Existing workflows retain node version 1 and its original Operation selector.
+  No resource value is added to those nodes, so loading a saved workflow does
+  not hide or discard its configured parameters. To use the grouped selector,
+  add a new SudoMock node and choose its resource; changing a workflow JSON's
+  `typeVersion` alone is not a supported migration.
+
+### Fixed
+
+- Added a dark-mode SVG icon and explicit light/dark icon mappings to both
+  SudoMock and SudoMock Trigger.
+- Translated the trigger's AI-tool compatibility comment into English. The
+  trigger remains excluded from the AI tool picker; the regular node remains
+  usable as a tool.
+- Added the missing final period to the Legacy webhook event-naming help text.
+
 ## [0.12.1] - 2026-09-24
 
 ### Fixed

@@ -97,6 +97,16 @@ Restart n8n after installation.
 
 ## Operations
 
+New SudoMock nodes first ask for a **Resource**, then show the operations for
+that resource: Account, Artwork, Font, Image, Job, Photo Mockup, PSD Mockup,
+Video, or Webhook. The default is **PSD Mockup → PSD Mockup: Render**.
+
+Workflows saved with node version 1 keep their original Operation selector and
+all existing settings when the package is updated. No workflow migration is
+required. To use the grouped selector, add a new SudoMock node and select the
+matching resource and operation. Do not change `typeVersion` in an existing
+workflow JSON without also configuring its resource.
+
 ### Get Account Info
 
 Retrieve your account information, subscription details, and credit usage.

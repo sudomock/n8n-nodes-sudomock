@@ -230,6 +230,13 @@ export class SudoMock implements INodeType {
 						action: 'Get PSD mockup details',
 					},
 					{
+						name: 'PSD Mockup: Get Layers',
+						value: 'getMockupLayers',
+						description:
+							'List every layer of a PSD mockup with the UUIDs Hidden Layers takes, including the layers inside its smart objects',
+						action: 'Get PSD mockup layers',
+					},
+					{
 						name: 'PSD Mockup: List',
 						value: 'listMockups',
 						description: 'List all your uploaded PSD mockup templates',
@@ -1300,7 +1307,7 @@ export class SudoMock implements INodeType {
 				displayOptions: { show: { operation: ['render'] } },
 				default: '[]',
 				description:
-					'Optional JSON array of up to 50 layer UUIDs to leave out of this render, as GET /api/v1/psd-mockups/{uuid}/layers lists them. Hiding a group hides every layer inside it. Works without smart objects or text layers.',
+					'Optional JSON array of up to 50 layer UUIDs to leave out of this render, as PSD Mockup: Get Layers lists them, including the layers inside a smart object. Hiding a group hides every layer inside it, and a layer hidden inside a smart object is hidden in every copy of it. Works without smart objects or text layers.',
 			},
 			{
 				displayName: 'Export Options',
@@ -2197,7 +2204,7 @@ export class SudoMock implements INodeType {
 				required: true,
 				displayOptions: {
 					show: {
-						operation: ['getMockup'],
+						operation: ['getMockup', 'getMockupLayers'],
 					},
 				},
 				default: '',
@@ -3508,6 +3515,28 @@ export class SudoMock implements INodeType {
 						{
 							method: 'GET',
 							url: `https://api.sudomock.com/api/v1/psd-mockups/${mockupUuid}`,
+							json: true,
+						},
+					);
+
+					returnData.push({
+						json: response,
+						pairedItem: { item: i },
+					});
+				}
+
+				// ========================================
+				// GET MOCKUP LAYERS
+				// ========================================
+				else if (operation === 'getMockupLayers') {
+					const mockupUuid = this.getNodeParameter('getMockupUuid', i) as string;
+
+					const response = await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'GET',
+							url: `https://api.sudomock.com/api/v1/psd-mockups/${mockupUuid}/layers`,
 							json: true,
 						},
 					);

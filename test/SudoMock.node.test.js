@@ -1347,7 +1347,11 @@ test('the built node carries only the family API paths', () => {
 		...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/psd-mockups[^'"`\s)]*/g),
 	].map((match) => match[0]);
 	assert.ok(psdUrls.length > 0, 'expected the node to build PSD mockup URLs');
-	const allowedPsdShapes = new Set([PSD_MOCKUP_BASE, `${PSD_MOCKUP_BASE}/\${mockupUuid}`]);
+	const allowedPsdShapes = new Set([
+		PSD_MOCKUP_BASE,
+		`${PSD_MOCKUP_BASE}/\${mockupUuid}`,
+		`${PSD_MOCKUP_BASE}/\${mockupUuid}/layers`,
+	]);
 	for (const url of psdUrls) {
 		assert.ok(allowedPsdShapes.has(url), `unexpected PSD mockup URL in the built node: ${url}`);
 	}

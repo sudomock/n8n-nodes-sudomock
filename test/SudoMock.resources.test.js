@@ -30,6 +30,7 @@ const expectedOperations = {
   psdMockup: [
     "deleteMockup",
     "getMockup",
+    "getMockupLayers",
     "listMockups",
     "render",
     "updateMockup",
@@ -84,7 +85,7 @@ function visibleProperties(typeVersion, parameters) {
   );
 }
 
-test("new nodes group all 33 operations exactly once, with one visible selector per resource", async (t) => {
+test("new nodes group all 34 operations exactly once, with one visible selector per resource", async (t) => {
   assert.deepEqual(description.version, [1, 2]);
   const resource = properties.find((property) => property.name === "resource");
   assert.equal(resource.noDataExpression, true);
@@ -108,8 +109,8 @@ test("new nodes group all 33 operations exactly once, with one visible selector 
     ],
   );
   const allOperations = Object.values(expectedOperations).flat();
-  assert.equal(allOperations.length, 33);
-  assert.equal(new Set(allOperations).size, 33);
+  assert.equal(allOperations.length, 34);
+  assert.equal(new Set(allOperations).size, 34);
 
   for (const [resourceName, operations] of Object.entries(expectedOperations)) {
     await t.test(resourceName, () => {
@@ -157,7 +158,7 @@ test("legacy nodes keep all operation values and normalized fields without acqui
           (property) => property.name === "operation",
         );
         assert.equal(selectors.length, 1);
-        assert.equal(selectors[0].options.length, 33);
+        assert.equal(selectors[0].options.length, 34);
         const { resource: selectedResource, ...current } = normalize(2, {
           ...legacy,
           resource,

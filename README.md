@@ -15,6 +15,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **PSD Mockup: Upload**: Upload PSD templates from a URL
 - **PSD Mockup: List**: List all your uploaded PSD mockup templates with filtering and pagination
 - **PSD Mockup: Get**: Get detailed information about a specific PSD mockup template
+- **PSD Mockup: Get Layers**: List every layer of a PSD mockup, including the layers inside its smart objects, with the UUIDs **Hidden Layers** takes
 - **PSD Mockup: Update**: Update the name of a PSD mockup template
 - **PSD Mockup: Delete**: Delete a specific PSD mockup template
 
@@ -233,6 +234,19 @@ Complete mockup details including all smart objects, thumbnails, and metadata.
 
 ---
 
+### PSD Mockup: Get Layers
+
+List every layer of a mockup template, nested the way Photoshop's Layers panel shows them and front-most first. A smart object whose contents hold layers you can fill lists those layers as its children. Costs no credits.
+
+**Parameters:**
+
+- **Mockup UUID** (required): UUID of the mockup
+
+**Output:**
+`data.layers`, where each layer has `uuid`, `name`, `kind`, `visible` and `children`. Put a layer's `uuid` in **Hidden Layers** on **PSD Mockup: Render** to leave it out of one render.
+
+---
+
 ### PSD Mockup: Update
 
 Update the name of a mockup template.
@@ -261,7 +275,7 @@ Generate a mockup by filling smart objects with your designs.
 **Parameters:**
 
 - **Mockup UUID** (required): UUID from the PSD Mockup: Upload response
-- **Smart Objects** (required): One or more smart objects to fill
+- **Smart Objects**: One or more smart objects to fill. Optional when Text Layers or Hidden Layers is set.
   - Smart Object UUID
   - Design URL (PNG, JPG, WebP)
   - Fit Mode: `fill`, `contain`, or `cover` (recommended)
@@ -273,6 +287,8 @@ Generate a mockup by filling smart objects with your designs.
     - Brightness: -150 to 150
     - Contrast: -100 to 100
     - Opacity: 0-100
+
+- **Hidden Layers** (optional): JSON array of up to 50 layer UUIDs from **PSD Mockup: Get Layers** to leave out of this render, including layers inside a smart object. Hiding a group hides every layer inside it. Works on its own.
 
 - **Export Options** (optional):
   - Image Format: WebP (recommended), PNG, or JPEG

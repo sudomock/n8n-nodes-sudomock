@@ -12,9 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PSD Mockup: Get Layers** lists every layer of a PSD mockup, nested the way
   Photoshop's Layers panel shows them and front-most first, with each layer's
   `uuid`, `name`, `kind`, `visible` and `children`. A smart object whose
-  contents hold layers you can fill lists those layers as its children. It
-  reuses the **Mockup UUID** field of **PSD Mockup: Get** and costs no credits.
-  New nodes group it under PSD Mockup, so the node now has 34 operations.
+  contents hold layers you can fill lists those layers as its children. An
+  artboard has `kind` `artboard`, and its own layers are listed right before
+  it at the top level. It reuses the **Mockup UUID** field of **PSD Mockup:
+  Get** and costs no credits. New nodes group it under PSD Mockup, so the
+  node now has 34 operations.
 - **PSD Mockup: Render** takes **Hidden Layers**, a JSON array of up to 50
   layer UUIDs to leave out of the render, as **PSD Mockup: Get Layers** lists
   them, including the layers inside a smart object. Hiding a group hides every
@@ -22,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   copy of it. It is sent as `hidden_layers` and works without smart objects or
   text layers. A workflow that leaves it empty sends the same request as
   before.
+
+### Fixed
+
+- **Remove Background** describes its result as a public PNG URL that stays
+  available for 7 days, which is what the API has returned since 2026-08-13.
+  The description and README had called it a signed URL.
 
 ## [0.13.0] - 2026-09-30
 

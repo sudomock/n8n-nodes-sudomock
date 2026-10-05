@@ -1294,6 +1294,15 @@ export class SudoMock implements INodeType {
 					'Optional text layer override array. Each item needs uuid plus text or segments, and can include font, font_size, color, stroke_color, and fit (overflow, shrink, or clip).',
 			},
 			{
+				displayName: 'Hidden Layers',
+				name: 'hiddenLayers',
+				type: 'json',
+				displayOptions: { show: { operation: ['render'] } },
+				default: '[]',
+				description:
+					'Optional JSON array of up to 50 layer UUIDs to leave out of this render, as GET /api/v1/psd-mockups/{uuid}/layers lists them. Hiding a group hides every layer inside it. Works without smart objects or text layers.',
+			},
+			{
 				displayName: 'Export Options',
 				name: 'exportOptions',
 				type: 'collection',
@@ -2763,6 +2772,11 @@ export class SudoMock implements INodeType {
 						this.getNodeParameter('textLayers', i, []),
 						'Text Layers',
 					) as Array<Record<string, unknown>>;
+					const hiddenLayers = parseJsonArray.call(
+						this,
+						this.getNodeParameter('hiddenLayers', i, []),
+						'Hidden Layers',
+					);
 					const exportOptions = this.getNodeParameter('exportOptions', i, {}) as {
 						imageFormat?: string;
 						imageSize?: number;
@@ -2873,10 +2887,13 @@ export class SudoMock implements INodeType {
 					if (textLayers.length > 0) {
 						body.text_layers = textLayers;
 					}
-					if (smartObjects.length === 0 && textLayers.length === 0) {
+					if (hiddenLayers.length > 0) {
+						body.hidden_layers = hiddenLayers;
+					}
+					if (smartObjects.length === 0 && textLayers.length === 0 && hiddenLayers.length === 0) {
 						throw new NodeOperationError(
 							this.getNode(),
-							'Add at least one smart object or text layer override',
+							'Add at least one smart object, text layer override, or hidden layer',
 						);
 					}
 					if (isAsync) {

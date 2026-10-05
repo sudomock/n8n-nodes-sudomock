@@ -5,6 +5,17 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **PSD Mockup: Render** takes **Hidden Layers**, a JSON array of up to 50
+  layer UUIDs to leave out of the render, as
+  `GET /api/v1/psd-mockups/{uuid}/layers` lists them. Hiding a group hides
+  every layer inside it. It is sent as `hidden_layers` and works without smart
+  objects or text layers. A workflow that leaves it empty sends the same
+  request as before.
+
 ## [0.13.0] - 2026-09-30
 
 ### Changed

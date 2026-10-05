@@ -51,6 +51,7 @@ const RESOURCES = [
     operations: [
       "deleteMockup",
       "getMockup",
+      "getMockupLayers",
       "listMockups",
       "render",
       "updateMockup",

@@ -1237,6 +1237,45 @@ test('background removal flags travel on both render paths only when enabled', a
 	});
 });
 
+test("render asks for the PSD's own size only when that option is on", async (t) => {
+	const psdParameters = (exportOptions) => ({
+		mockupUuid: 'mockup-1',
+		'smartObjects.items': [{ uuid: 'so-1', assetUrl: 'https://cdn.example.com/design.png', fit: 'cover' }],
+		textLayers: '[]',
+		exportOptions,
+	});
+
+	await t.test('the option sends image_size original in place of the width', async () => {
+		const { calls } = await runOperation({
+			operation: 'render',
+			parameters: psdParameters({ imageFormat: 'png', imageSize: 4096, originalSize: true, dpi: 300 }),
+		});
+
+		assert.deepEqual(calls[0].options.body.export_options, {
+			image_format: 'png',
+			image_size: 'original',
+			dpi: 300,
+		});
+	});
+
+	await t.test('without the option the body is unchanged', async () => {
+		for (const option of [{}, { originalSize: false }]) {
+			const { calls } = await runOperation({
+				operation: 'render',
+				parameters: psdParameters({ imageFormat: 'png', imageSize: 4096, dpi: 300, ...option }),
+			});
+
+			assert.deepEqual(calls[0].options.body, {
+				mockup_uuid: 'mockup-1',
+				smart_objects: [
+					{ uuid: 'so-1', asset: { url: 'https://cdn.example.com/design.png', fit: 'cover' } },
+				],
+				export_options: { image_format: 'png', image_size: 4096, dpi: 300 },
+			});
+		}
+	});
+});
+
 test('the trigger is packaged, verifies signatures, and cleans up an already deleted webhook', async () => {
 	const packageJson = require('../package.json');
 	const { SudoMockTrigger } = require('../dist/nodes/SudoMock/SudoMockTrigger.node.js');

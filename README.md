@@ -293,6 +293,7 @@ Generate a mockup by filling smart objects with your designs.
 - **Export Options** (optional):
   - Image Format: WebP (recommended), PNG, or JPEG
   - Image Size: Width in pixels (100-10000, default 2048)
+  - PSD's Own Size and Resolution: render at the template's own width, with the resolution the PSD was saved with unless DPI is set
   - Quality: 1-100 for JPG/WebP
   - Export Label: Custom label for file naming
 

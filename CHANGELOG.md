@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-06
+
+### Added
+
+- **PSD Mockup: Render** takes **PSD's Own Size and Resolution** under Export
+  Options. When it is on, the render comes out at the template's own width,
+  with the height following its proportions, and the file carries the
+  resolution the PSD was saved with unless DPI is set. It is sent as
+  `image_size` `original` in place of **Image Size (Width)**. A template
+  uploaded before this option existed needs to be uploaded again to use it. A
+  workflow that leaves it off sends the same request as before.
+
 ## [0.14.0] - 2026-10-06
 
 ### Added

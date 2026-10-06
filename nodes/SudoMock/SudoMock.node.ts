@@ -1376,6 +1376,14 @@ export class SudoMock implements INodeType {
 							'Output width in pixels (100-10000). Height scales proportionally. Powers of 2 (1024, 2048, 4096) recommended.',
 					},
 					{
+						displayName: "PSD's Own Size and Resolution",
+						name: 'originalSize',
+						type: 'boolean',
+						default: false,
+						description:
+							"Whether to render at the PSD's own size and resolution: its own width, and the resolution it was saved with unless DPI is set. Image Size (Width) is not used when this is on.",
+					},
+					{
 						displayName: 'Quality',
 						name: 'quality',
 						type: 'number',
@@ -2787,6 +2795,7 @@ export class SudoMock implements INodeType {
 					const exportOptions = this.getNodeParameter('exportOptions', i, {}) as {
 						imageFormat?: string;
 						imageSize?: number;
+						originalSize?: boolean;
 						quality?: number;
 						dpi?: number;
 						exportLabel?: string;
@@ -2913,7 +2922,9 @@ export class SudoMock implements INodeType {
 						if (exportOptions.imageFormat) {
 							expOpts.image_format = exportOptions.imageFormat;
 						}
-						if (exportOptions.imageSize) {
+						if (exportOptions.originalSize) {
+							expOpts.image_size = 'original';
+						} else if (exportOptions.imageSize) {
 							expOpts.image_size = exportOptions.imageSize;
 						}
 						if (exportOptions.quality) {

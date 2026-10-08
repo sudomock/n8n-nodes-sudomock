@@ -1232,15 +1232,17 @@ export class SudoMock implements INodeType {
 										displayName: 'Position Left',
 										name: 'positionLeft',
 										type: 'number',
-										default: 0,
-										description: 'Custom position left offset in pixels',
+										default: null,
+										description:
+											'Custom position left offset in pixels. Leave empty for the default placement; 0 is the left edge.',
 									},
 									{
 										displayName: 'Position Top',
 										name: 'positionTop',
 										type: 'number',
-										default: 0,
-										description: 'Custom position top offset in pixels',
+										default: null,
+										description:
+											'Custom position top offset in pixels. Leave empty for the default placement; 0 is the top edge.',
 									},
 									{
 										displayName: 'Remove Background',
@@ -2770,8 +2772,8 @@ export class SudoMock implements INodeType {
 							removeBackground?: boolean;
 							sizeWidth?: number;
 							sizeHeight?: number;
-							positionTop?: number;
-							positionLeft?: number;
+							positionTop?: number | null;
+							positionLeft?: number | null;
 							colorHex?: string;
 							colorBlendMode?: string;
 							brightness?: number;
@@ -2846,12 +2848,14 @@ export class SudoMock implements INodeType {
 								asset.size = size;
 							}
 
-							// Custom position override (top/left, DynamicMockups compatible)
+							// Custom position override (top/left, DynamicMockups compatible).
+							// An empty field holds null and is not sent, so the default
+							// placement stays. 0 is sent: it puts the artwork against that edge.
 							const position: Record<string, number> = {};
-							if (opts.positionTop !== undefined && opts.positionTop !== 0) {
+							if (opts.positionTop !== undefined && opts.positionTop !== null) {
 								position.top = opts.positionTop;
 							}
-							if (opts.positionLeft !== undefined && opts.positionLeft !== 0) {
+							if (opts.positionLeft !== undefined && opts.positionLeft !== null) {
 								position.left = opts.positionLeft;
 							}
 							if (Object.keys(position).length > 0) {

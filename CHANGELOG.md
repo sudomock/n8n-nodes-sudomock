@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Position Top** and **Position Left** under Additional Options on **PSD
+  Mockup: Render** send 0, which puts the artwork against that edge. A 0 used
+  to be left out of the request, so the artwork kept its default placement.
+  Both fields now start empty when you add them, and an empty field is not
+  sent. A workflow saved with 0 in either field sends it from this version on;
+  clear the field to keep the earlier placement.
+
 ## [0.15.0] - 2026-10-06
 
 ### Added

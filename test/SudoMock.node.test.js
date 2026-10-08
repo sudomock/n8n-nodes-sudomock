@@ -1276,6 +1276,44 @@ test("render asks for the PSD's own size only when that option is on", async (t)
 	});
 });
 
+// 0 in Position Top or Position Left puts the artwork against that edge, so it
+// is sent like any other number. A field left empty holds null and keeps the
+// default placement, so it is not sent.
+test('render sends a Position Top or Left of 0 and leaves an empty one out', async (t) => {
+	const renderAsset = async (additionalOptions) => {
+		const { calls } = await runOperation({
+			operation: 'render',
+			parameters: {
+				mockupUuid: 'mockup-1',
+				'smartObjects.items': [
+					{
+						uuid: 'so-1',
+						assetUrl: 'https://cdn.example.com/design.png',
+						fit: 'cover',
+						additionalOptions,
+					},
+				],
+				textLayers: '[]',
+				exportOptions: {},
+			},
+		});
+		return calls[0].options.body.smart_objects[0].asset;
+	};
+
+	await t.test('0 is sent', async () => {
+		const asset = await renderAsset({ positionTop: 0, positionLeft: 0 });
+		assert.deepEqual(asset.position, { top: 0, left: 0 });
+	});
+
+	await t.test('an empty field is not sent', async () => {
+		const oneEmpty = await renderAsset({ positionTop: null, positionLeft: 120 });
+		assert.deepEqual(oneEmpty.position, { left: 120 });
+
+		const bothEmpty = await renderAsset({ positionTop: null, positionLeft: null });
+		assert.equal('position' in bothEmpty, false);
+	});
+});
+
 test('the trigger is packaged, verifies signatures, and cleans up an already deleted webhook', async () => {
 	const packageJson = require('../package.json');
 	const { SudoMockTrigger } = require('../dist/nodes/SudoMock/SudoMockTrigger.node.js');

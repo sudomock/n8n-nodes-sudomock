@@ -5,6 +5,19 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-10-23
+
+### Added
+
+- **PSD Mockup: Render** takes **Tile** under Additional Options: the artwork
+  repeats as a pattern across the whole smart object. **Custom Width** and
+  **Custom Height** are one tile, **Fit Mode** places the artwork inside each
+  tile, and **Position Top** and **Position Left** set where the grid starts.
+  A tile needs a size.
+- **Photo Mockup: Render** takes **Tile** in the placement of a saved print
+  area and of a surface: the sizing you set is one tile. It is sent only when
+  it is on.
+
 ## [0.15.1] - 2026-10-08
 
 ### Fixed

@@ -778,6 +778,15 @@ export class SudoMock implements INodeType {
 											'Whether to repeat the artwork as a pattern across the whole target. The sizing answer (coverage, fit, or width and height) is one tile, and position with offset_x and offset_y sets where the grid starts. Requires a sizing answer.',
 									},
 									{
+										displayName: 'Tile Spacing',
+										name: 'tile_spacing',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 100 },
+										default: 0,
+										description:
+											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
+									},
+									{
 										displayName: 'Width',
 										name: 'width',
 										type: 'number',
@@ -887,6 +896,15 @@ export class SudoMock implements INodeType {
 										default: false,
 										description:
 											'Whether to repeat the artwork as a pattern across the whole target. The sizing answer (coverage, fit, or width and height) is one tile, and position with offset_x and offset_y sets where the grid starts. Requires a sizing answer.',
+									},
+									{
+										displayName: 'Tile Spacing',
+										name: 'tile_spacing',
+										type: 'number',
+										typeOptions: { minValue: 0, maxValue: 100 },
+										default: 0,
+										description:
+											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
 									},
 									{
 										displayName: 'Width',
@@ -1298,6 +1316,18 @@ export class SudoMock implements INodeType {
 										default: false,
 										description:
 											'Whether to repeat the artwork as a pattern across the whole smart object. size is one tile, fit places the artwork inside each tile, and position sets where the grid starts. Requires size.',
+									},
+									{
+										displayName: 'Tile Spacing',
+										name: 'tileSpacing',
+										type: 'number',
+										typeOptions: {
+											minValue: 0,
+											maxValue: 100,
+										},
+										default: 0,
+										description:
+											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
 									},
 									{
 										displayName: 'Vibrance',
@@ -2809,6 +2839,7 @@ export class SudoMock implements INodeType {
 							opacity?: number;
 							saturation?: number;
 							tile?: boolean;
+							tileSpacing?: number;
 							vibrance?: number;
 							blur?: number;
 						};
@@ -2894,6 +2925,11 @@ export class SudoMock implements INodeType {
 							// Repeat the artwork as a pattern; asset.size is one tile
 							if (opts.tile) {
 								asset.tile = true;
+							}
+
+							// Gap between tiles, as a percent of the tile size
+							if (opts.tileSpacing !== undefined && opts.tileSpacing !== 0) {
+								asset.tile_spacing = opts.tileSpacing;
 							}
 
 							// Color overlay

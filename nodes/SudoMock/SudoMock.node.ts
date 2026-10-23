@@ -770,6 +770,14 @@ export class SudoMock implements INodeType {
 										description: 'Artwork rotation in degrees',
 									},
 									{
+										displayName: 'Tile',
+										name: 'tile',
+										type: 'boolean',
+										default: false,
+										description:
+											'Whether to repeat the artwork as a pattern across the whole target. The sizing answer (coverage, fit, or width and height) is one tile, and position with offset_x and offset_y sets where the grid starts. Requires a sizing answer.',
+									},
+									{
 										displayName: 'Width',
 										name: 'width',
 										type: 'number',
@@ -871,6 +879,14 @@ export class SudoMock implements INodeType {
 										type: 'number',
 										default: 0,
 										description: 'Artwork rotation in degrees',
+									},
+									{
+										displayName: 'Tile',
+										name: 'tile',
+										type: 'boolean',
+										default: false,
+										description:
+											'Whether to repeat the artwork as a pattern across the whole target. The sizing answer (coverage, fit, or width and height) is one tile, and position with offset_x and offset_y sets where the grid starts. Requires a sizing answer.',
 									},
 									{
 										displayName: 'Width',
@@ -1274,6 +1290,14 @@ export class SudoMock implements INodeType {
 										default: 0,
 										description:
 											'Saturation adjustment (-100 to 100). 0=no change, -100=grayscale.',
+									},
+									{
+										displayName: 'Tile',
+										name: 'tile',
+										type: 'boolean',
+										default: false,
+										description:
+											'Whether to repeat the artwork as a pattern across the whole smart object. size is one tile, fit places the artwork inside each tile, and position sets where the grid starts. Requires size.',
 									},
 									{
 										displayName: 'Vibrance',
@@ -2553,6 +2577,10 @@ export class SudoMock implements INodeType {
 									);
 								}
 							}
+							// Tile is sent only when it is on.
+							if (placement.tile !== true) {
+								delete placement.tile;
+							}
 							if (Object.keys(placement).length > 0) {
 								printArea.placement = placement;
 							}
@@ -2780,6 +2808,7 @@ export class SudoMock implements INodeType {
 							contrast?: number;
 							opacity?: number;
 							saturation?: number;
+							tile?: boolean;
 							vibrance?: number;
 							blur?: number;
 						};
@@ -2860,6 +2889,11 @@ export class SudoMock implements INodeType {
 							}
 							if (Object.keys(position).length > 0) {
 								asset.position = position;
+							}
+
+							// Repeat the artwork as a pattern; asset.size is one tile
+							if (opts.tile) {
+								asset.tile = true;
 							}
 
 							// Color overlay

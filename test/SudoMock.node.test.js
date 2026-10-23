@@ -216,14 +216,14 @@ test('each render target kind exposes only the placement dials that belong to it
 
 	assert.deepEqual(
 		printAreaPlacement.options.map((option) => option.name),
-		['fit', 'height', 'offset_x', 'offset_y', 'position', 'rotation', 'width'],
+		['fit', 'height', 'offset_x', 'offset_y', 'position', 'rotation', 'tile', 'width'],
 	);
 	// A surface takes a percentage or an explicit box. The box is here because a
 	// size drawn on a canvas cannot be written as a percentage once its
 	// proportions differ from the surface it sits on.
 	assert.deepEqual(
 		surfacePlacement.options.map((option) => option.name),
-		['coverage', 'height', 'offset_x', 'offset_y', 'position', 'rotation', 'width'],
+		['coverage', 'height', 'offset_x', 'offset_y', 'position', 'rotation', 'tile', 'width'],
 	);
 	// No fit on a surface, in either direction.
 	assert.equal(

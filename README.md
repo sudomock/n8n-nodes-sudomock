@@ -288,7 +288,7 @@ Generate a mockup by filling smart objects with your designs.
     - Contrast: -100 to 100
     - Opacity: 0-100
     - Custom Width and Custom Height: the artwork's own size in pixels
-    - Position Top and Position Left: offset in pixels from the top left of the smart object
+    - Position Top and Position Left: offset in pixels from the top left of the smart object when Custom Width or Custom Height is set. Without a size they move the whole smart object on the template, so set them together with a size.
     - Tile: repeat the artwork as a pattern across the whole smart object. Custom Width and Custom Height are one tile, Fit Mode places the artwork inside each tile, and Position Top and Position Left set where the grid starts. A tile needs a size.
     - Tile Spacing: gap between tiles, 0 to 100 percent of the tile size: that percent of the tile width between columns, and of its height between rows. Used only when Tile is on.
 
@@ -403,8 +403,9 @@ logo can both be addressed on the same product, in the same call, as two targets
 
 Placement is where the two kinds differ:
 
-- A **surface** target takes **Coverage**, a percentage from 10 to 100. Leave it out
-  and the artwork covers the whole surface.
+- A **surface** target takes either **Coverage**, a percentage from 10 to 100, or an
+  explicit **Width** and **Height** pair. Send one or the other, never both. Leave
+  both out and the artwork covers the whole surface.
 - A **print area** target takes either **Fit** (`contain`, `fill`, or `cover`), which
   always sizes the artwork to the whole area, or an explicit **Width** and **Height**
   pair when you want to choose the box yourself. Send one or the other, never both,

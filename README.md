@@ -421,7 +421,7 @@ Turn a mockup (or an existing image URL) into a short product video. Always asyn
 
 - **Input Mode**: `Render Mockup` (render a mockup with your designs first) or `Animate Image URL` (animate a public image directly)
 - **Mockup UUID** (required in Render Mockup mode): UUID of the mockup to animate
-- **Smart Objects** (required in Render Mockup mode): one or more smart objects with a Design URL and Fit Mode
+- **Smart Objects** (required in Render Mockup mode): one or more smart objects with a Design URL and Fit Mode, plus optional Custom Width, Custom Height, Position Top, Position Left, Tile and Tile Spacing, the same as in PSD Mockup: Render
 - **Image URL** (required in Animate Image URL mode): public HTTPS image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.avif`)
 - **Webhook URL** (optional): one-off HTTPS URL notified when this job finishes
 - **Video Options**:

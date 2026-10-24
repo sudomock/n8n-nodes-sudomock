@@ -25,6 +25,7 @@ interface TwoDPrintAreaPoints {
 	point3Y: number;
 	point4X: number;
 	point4Y: number;
+	printAreaId?: string;
 }
 
 interface TwoDRenderTarget {
@@ -45,7 +46,7 @@ interface TwoDRenderTarget {
 	surfacePlacement?: IDataObject;
 }
 
-function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[]) {
+function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[], keepIds = false) {
 	return printAreas.map((area) => ({
 		points: [
 			[area.point1X, area.point1Y],
@@ -53,6 +54,8 @@ function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[]) {
 			[area.point3X, area.point3Y],
 			[area.point4X, area.point4Y],
 		],
+		// Only Set Print Areas keeps an id: a mockup being created has no area to keep.
+		...(keepIds && area.printAreaId ? { print_area_id: area.printAreaId } : {}),
 	}));
 }
 
@@ -475,7 +478,7 @@ export class SudoMock implements INodeType {
 				default: {},
 				placeholder: 'Add Print Area',
 				description:
-					'Optional during creation. Set Print Areas may send an empty list; the API decides whether the mockup can remain renderable without saved areas.',
+					'Optional during creation. Set Print Areas may send an empty list; the API decides whether the mockup can remain renderable without saved areas. On Set Print Areas, an area with a Print Area ID keeps that id.',
 				options: [
 					{
 						name: 'items',
@@ -544,6 +547,20 @@ export class SudoMock implements INodeType {
 								required: true,
 								default: 0,
 								description: 'Y coordinate of point 4',
+							},
+							{
+								displayName: 'Print Area ID',
+								name: 'printAreaId',
+								type: 'string',
+								displayOptions: {
+									show: {
+										'/operation': ['set2DPrintAreas'],
+									},
+								},
+								default: '',
+								placeholder: '19be48d4-c810-4420-86e3-7ec2a4d85571',
+								description:
+									'Id of an existing print area of this mockup to keep its id. Leave it out for a new area.',
 							},
 						],
 					},
@@ -2477,7 +2494,7 @@ export class SudoMock implements INodeType {
 						i,
 						[],
 					) as TwoDPrintAreaPoints[];
-					const body = { print_areas: format2DPrintAreas(printAreas) };
+					const body = { print_areas: format2DPrintAreas(printAreas, true) };
 					const response = await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',

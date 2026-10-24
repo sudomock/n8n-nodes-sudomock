@@ -114,7 +114,7 @@ const ASSET_PLACEMENT_FIELDS: Record<keyof AssetPlacementOptions, INodePropertie
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether to repeat the artwork as a pattern across the whole smart object. size is one tile, fit places the artwork inside each tile, and position sets where the grid starts. Requires size.',
+			'Whether to repeat the artwork as a pattern across the whole smart object. Custom Width and Custom Height are one tile, Fit Mode places the artwork inside each tile, and Position Top and Position Left set where the grid starts. Requires Custom Width or Custom Height.',
 	},
 	tileSpacing: {
 		displayName: 'Tile Spacing',
@@ -126,7 +126,7 @@ const ASSET_PLACEMENT_FIELDS: Record<keyof AssetPlacementOptions, INodePropertie
 		},
 		default: 0,
 		description:
-			'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
+			'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when Tile is on.',
 	},
 };
 
@@ -903,7 +903,7 @@ export class SudoMock implements INodeType {
 										type: 'boolean',
 										default: false,
 										description:
-											'Whether to repeat the artwork as a pattern across the whole target. The sizing answer (coverage, fit, or width and height) is one tile, and position with offset_x and offset_y sets where the grid starts. Requires a sizing answer.',
+											'Whether to repeat the artwork as a pattern across the whole print area. Fit, or Width and Height, sizes one tile, and Position with Offset X and Offset Y sets where the grid starts. Requires Fit, or Width and Height.',
 									},
 									{
 										displayName: 'Tile Spacing',
@@ -912,7 +912,7 @@ export class SudoMock implements INodeType {
 										typeOptions: { minValue: 0, maxValue: 100 },
 										default: 0,
 										description:
-											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
+											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when Tile is on.',
 									},
 									{
 										displayName: 'Width',
@@ -1023,7 +1023,7 @@ export class SudoMock implements INodeType {
 										type: 'boolean',
 										default: false,
 										description:
-											'Whether to repeat the artwork as a pattern across the whole target. The sizing answer (coverage, fit, or width and height) is one tile, and position with offset_x and offset_y sets where the grid starts. Requires a sizing answer.',
+											'Whether to repeat the artwork as a pattern across the whole surface. Coverage, or Width and Height, sizes one tile, and Position with Offset X and Offset Y sets where the grid starts. Requires Coverage, or Width and Height.',
 									},
 									{
 										displayName: 'Tile Spacing',
@@ -1032,7 +1032,7 @@ export class SudoMock implements INodeType {
 										typeOptions: { minValue: 0, maxValue: 100 },
 										default: 0,
 										description:
-											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
+											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when Tile is on.',
 									},
 									{
 										displayName: 'Width',

@@ -287,6 +287,10 @@ Generate a mockup by filling smart objects with your designs.
     - Brightness: -150 to 150
     - Contrast: -100 to 100
     - Opacity: 0-100
+    - Custom Width and Custom Height: the artwork's own size in pixels
+    - Position Top and Position Left: offset in pixels from the top left of the smart object
+    - Tile: repeat the artwork as a pattern across the whole smart object. Custom Width and Custom Height are one tile, Fit Mode places the artwork inside each tile, and Position Top and Position Left set where the grid starts. A tile needs a size.
+    - Tile Spacing: gap between tiles, 0 to 100 percent of the tile size: that percent of the tile width between columns, and of its height between rows. Used only when Tile is on.
 
 - **Hidden Layers** (optional): JSON array of up to 50 layer UUIDs from **PSD Mockup: Get Layers** to leave out of this render, including layers inside a smart object. Hiding a group hides every layer inside it. Works on its own.
 
@@ -408,6 +412,15 @@ Placement is where the two kinds differ:
 
 Both kinds take position, offset, and rotation. Anything you do not set is not sent,
 so the API decides it.
+
+Both kinds also take **Tile**, which repeats the artwork as a pattern across the
+whole target. The size you set is one tile: **Fit**, or **Width** and **Height**, on
+a print area, and **Coverage**, or **Width** and **Height**, on a surface. **Position**
+with **Offset X** and **Offset Y** sets where the grid starts. **Tile Spacing** is the
+gap between tiles, 0 to 100 percent of the tile size, used only when Tile is on.
+
+Each entry in `data.surfaces` also carries a `label`, what was detected there, such
+as `pillow` or `wall`, so you can tell surfaces apart before you pick one.
 
 Create must reach `ready` through **Photo Mockup: Get** before **Photo Mockup: Render**.
 

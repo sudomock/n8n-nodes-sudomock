@@ -1,6 +1,7 @@
 import {
 	IExecuteFunctions,
 	INodeExecutionData,
+	INodeProperties,
 	INodeType,
 	INodeTypeDescription,
 	NodeConnectionTypes,
@@ -57,6 +58,116 @@ function format2DPrintAreas(printAreas: TwoDPrintAreaPoints[], keepIds = false) 
 		// Only Set Print Areas keeps an id: a mockup being created has no area to keep.
 		...(keepIds && area.printAreaId ? { print_area_id: area.printAreaId } : {}),
 	}));
+}
+
+interface AssetPlacementOptions {
+	sizeWidth?: number;
+	sizeHeight?: number;
+	positionTop?: number | null;
+	positionLeft?: number | null;
+	tile?: boolean;
+	tileSpacing?: number;
+}
+
+// The size, position and tile fields of a smart object asset. PSD Mockup: Render
+// and Render Video both offer them, so the two show the same names and descriptions.
+const ASSET_PLACEMENT_FIELDS: Record<keyof AssetPlacementOptions, INodeProperties> = {
+	sizeHeight: {
+		displayName: 'Custom Height',
+		name: 'sizeHeight',
+		type: 'number',
+		typeOptions: {
+			minValue: 1,
+		},
+		default: 0,
+		description: 'Custom asset height override in pixels. 0 = use smart object bounds.',
+	},
+	sizeWidth: {
+		displayName: 'Custom Width',
+		name: 'sizeWidth',
+		type: 'number',
+		typeOptions: {
+			minValue: 1,
+		},
+		default: 0,
+		description: 'Custom asset width override in pixels. 0 = use smart object bounds.',
+	},
+	positionLeft: {
+		displayName: 'Position Left',
+		name: 'positionLeft',
+		type: 'number',
+		default: null,
+		description:
+			'Custom position left offset in pixels. Leave empty for the default placement; 0 is the left edge.',
+	},
+	positionTop: {
+		displayName: 'Position Top',
+		name: 'positionTop',
+		type: 'number',
+		default: null,
+		description:
+			'Custom position top offset in pixels. Leave empty for the default placement; 0 is the top edge.',
+	},
+	tile: {
+		displayName: 'Tile',
+		name: 'tile',
+		type: 'boolean',
+		default: false,
+		description:
+			'Whether to repeat the artwork as a pattern across the whole smart object. size is one tile, fit places the artwork inside each tile, and position sets where the grid starts. Requires size.',
+	},
+	tileSpacing: {
+		displayName: 'Tile Spacing',
+		name: 'tileSpacing',
+		type: 'number',
+		typeOptions: {
+			minValue: 0,
+			maxValue: 100,
+		},
+		default: 0,
+		description:
+			'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
+	},
+};
+
+// Puts the size, position and tile fields on a smart object asset. A field left
+// empty is not sent.
+function addAssetPlacement(asset: Record<string, unknown>, opts: AssetPlacementOptions) {
+	// Custom size override
+	const size: Record<string, number> = {};
+	if (opts.sizeWidth !== undefined && opts.sizeWidth > 0) {
+		size.width = opts.sizeWidth;
+	}
+	if (opts.sizeHeight !== undefined && opts.sizeHeight > 0) {
+		size.height = opts.sizeHeight;
+	}
+	if (Object.keys(size).length > 0) {
+		asset.size = size;
+	}
+
+	// Custom position override (top/left, DynamicMockups compatible).
+	// An empty field holds null and is not sent, so the default
+	// placement stays. 0 is sent: it puts the artwork against that edge.
+	const position: Record<string, number> = {};
+	if (opts.positionTop !== undefined && opts.positionTop !== null) {
+		position.top = opts.positionTop;
+	}
+	if (opts.positionLeft !== undefined && opts.positionLeft !== null) {
+		position.left = opts.positionLeft;
+	}
+	if (Object.keys(position).length > 0) {
+		asset.position = position;
+	}
+
+	// Repeat the artwork as a pattern; asset.size is one tile
+	if (opts.tile) {
+		asset.tile = true;
+	}
+
+	// Gap between tiles, as a percent of the tile size
+	if (opts.tileSpacing !== undefined && opts.tileSpacing !== 0) {
+		asset.tile_spacing = opts.tileSpacing;
+	}
 }
 
 function parseJsonArray(this: IExecuteFunctions, value: unknown, name: string): unknown[] {
@@ -1246,28 +1357,8 @@ export class SudoMock implements INodeType {
 										default: 0,
 										description: 'Contrast adjustment (-100 to 100)',
 									},
-									{
-										displayName: 'Custom Height',
-										name: 'sizeHeight',
-										type: 'number',
-										typeOptions: {
-											minValue: 1,
-										},
-										default: 0,
-										description:
-											'Custom asset height override in pixels. 0 = use smart object bounds.',
-									},
-									{
-										displayName: 'Custom Width',
-										name: 'sizeWidth',
-										type: 'number',
-										typeOptions: {
-											minValue: 1,
-										},
-										default: 0,
-										description:
-											'Custom asset width override in pixels. 0 = use smart object bounds.',
-									},
+									ASSET_PLACEMENT_FIELDS.sizeHeight,
+									ASSET_PLACEMENT_FIELDS.sizeWidth,
 									{
 										displayName: 'Opacity',
 										name: 'opacity',
@@ -1279,22 +1370,8 @@ export class SudoMock implements INodeType {
 										default: 100,
 										description: 'Layer opacity (0-100)',
 									},
-									{
-										displayName: 'Position Left',
-										name: 'positionLeft',
-										type: 'number',
-										default: null,
-										description:
-											'Custom position left offset in pixels. Leave empty for the default placement; 0 is the left edge.',
-									},
-									{
-										displayName: 'Position Top',
-										name: 'positionTop',
-										type: 'number',
-										default: null,
-										description:
-											'Custom position top offset in pixels. Leave empty for the default placement; 0 is the top edge.',
-									},
+									ASSET_PLACEMENT_FIELDS.positionLeft,
+									ASSET_PLACEMENT_FIELDS.positionTop,
 									{
 										displayName: 'Remove Background',
 										name: 'removeBackground',
@@ -1326,26 +1403,8 @@ export class SudoMock implements INodeType {
 										description:
 											'Saturation adjustment (-100 to 100). 0=no change, -100=grayscale.',
 									},
-									{
-										displayName: 'Tile',
-										name: 'tile',
-										type: 'boolean',
-										default: false,
-										description:
-											'Whether to repeat the artwork as a pattern across the whole smart object. size is one tile, fit places the artwork inside each tile, and position sets where the grid starts. Requires size.',
-									},
-									{
-										displayName: 'Tile Spacing',
-										name: 'tileSpacing',
-										type: 'number',
-										typeOptions: {
-											minValue: 0,
-											maxValue: 100,
-										},
-										default: 0,
-										description:
-											'Gap between tiles as a percentage of the tile size, 0 to 100. The horizontal gap is that percent of the tile width, the vertical gap that percent of the tile height. Used only when tile is true.',
-									},
+									ASSET_PLACEMENT_FIELDS.tile,
+									ASSET_PLACEMENT_FIELDS.tileSpacing,
 									{
 										displayName: 'Vibrance',
 										name: 'vibrance',
@@ -1602,6 +1661,14 @@ export class SudoMock implements INodeType {
 								],
 								default: 'crop',
 								description: 'How to fit the design in the smart object bounds',
+							},
+							{
+								displayName: 'Additional Options',
+								name: 'additionalOptions',
+								type: 'collection',
+								placeholder: 'Add Option',
+								default: {},
+								options: Object.values(ASSET_PLACEMENT_FIELDS),
 							},
 						],
 					},
@@ -2840,23 +2907,17 @@ export class SudoMock implements INodeType {
 						uuid: string;
 						assetUrl: string;
 						fit: string;
-						additionalOptions?: {
+						additionalOptions?: AssetPlacementOptions & {
 							rotate?: number;
 							base64?: string;
 							contentType?: string;
 							removeBackground?: boolean;
-							sizeWidth?: number;
-							sizeHeight?: number;
-							positionTop?: number | null;
-							positionLeft?: number | null;
 							colorHex?: string;
 							colorBlendMode?: string;
 							brightness?: number;
 							contrast?: number;
 							opacity?: number;
 							saturation?: number;
-							tile?: boolean;
-							tileSpacing?: number;
 							vibrance?: number;
 							blur?: number;
 						};
@@ -2913,41 +2974,7 @@ export class SudoMock implements INodeType {
 								asset.remove_background = true;
 							}
 
-							// Custom size override
-							const size: Record<string, number> = {};
-							if (opts.sizeWidth !== undefined && opts.sizeWidth > 0) {
-								size.width = opts.sizeWidth;
-							}
-							if (opts.sizeHeight !== undefined && opts.sizeHeight > 0) {
-								size.height = opts.sizeHeight;
-							}
-							if (Object.keys(size).length > 0) {
-								asset.size = size;
-							}
-
-							// Custom position override (top/left, DynamicMockups compatible).
-							// An empty field holds null and is not sent, so the default
-							// placement stays. 0 is sent: it puts the artwork against that edge.
-							const position: Record<string, number> = {};
-							if (opts.positionTop !== undefined && opts.positionTop !== null) {
-								position.top = opts.positionTop;
-							}
-							if (opts.positionLeft !== undefined && opts.positionLeft !== null) {
-								position.left = opts.positionLeft;
-							}
-							if (Object.keys(position).length > 0) {
-								asset.position = position;
-							}
-
-							// Repeat the artwork as a pattern; asset.size is one tile
-							if (opts.tile) {
-								asset.tile = true;
-							}
-
-							// Gap between tiles, as a percent of the tile size
-							if (opts.tileSpacing !== undefined && opts.tileSpacing !== 0) {
-								asset.tile_spacing = opts.tileSpacing;
-							}
+							addAssetPlacement(asset, opts);
 
 							// Color overlay
 							if (opts.colorHex) {
@@ -3089,12 +3116,16 @@ export class SudoMock implements INodeType {
 							uuid: string;
 							assetUrl: string;
 							fit: string;
+							additionalOptions?: AssetPlacementOptions;
 						}>;
 						body.mockup_uuid = mockupUuid;
-						body.smart_objects = smartObjectsData.map((so) => ({
-							uuid: so.uuid,
-							asset: { url: so.assetUrl, fit: so.fit },
-						}));
+						body.smart_objects = smartObjectsData.map((so) => {
+							const asset: Record<string, unknown> = { url: so.assetUrl, fit: so.fit };
+							if (so.additionalOptions) {
+								addAssetPlacement(asset, so.additionalOptions);
+							}
+							return { uuid: so.uuid, asset };
+						});
 					}
 
 					const video: Record<string, unknown> = {};

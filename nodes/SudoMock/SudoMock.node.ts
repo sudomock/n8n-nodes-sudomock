@@ -1071,7 +1071,7 @@ export class SudoMock implements INodeType {
 									{
 										name: 'Surface',
 										value: 'surface',
-										description: 'Target a printable product returned in data.surfaces',
+										description: "Target a printable product, or a room's main wall, returned in data.surfaces",
 									},
 								],
 								default: 'savedPrintArea',

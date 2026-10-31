@@ -5,6 +5,13 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-10-31
+
+### Changed
+
+- The node and credential icon SVGs name their root layer `layer_1`. The
+  icons look the same.
+
 ## [0.17.0] - 2026-10-24
 
 ### Added

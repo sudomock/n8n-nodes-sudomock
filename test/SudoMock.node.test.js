@@ -11,7 +11,7 @@ const { SudoMock } = require(NODE_DIST_PATH);
 //
 // These paths are the api.sudomock.com public surface: the Photo Mockups
 // family lives under /api/v1/photo-mockups and the PSD family under
-// /api/v1/psd-mockups (mockup-generator app/core/api_paths.py). The earlier
+// /api/v1/psd-mockups. The earlier
 // spellings (/api/v1/sudoai/2d-mockups and /api/v1/mockups) are still served
 // by the backend for workflows built on older versions of this package, but
 // the node itself emits only the family paths. They are declared here

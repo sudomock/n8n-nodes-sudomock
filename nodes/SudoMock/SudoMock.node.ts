@@ -378,7 +378,7 @@ export class SudoMock implements INodeType {
 						name: 'Remove Background',
 						value: 'removeBackground',
 						description:
-							'Remove the background from an image and get a transparent-PNG cutout at a public URL that stays available for 7 days. Costs 25 credits; auto-refunded on failure.',
+							'Remove the background from an image and get a transparent-PNG cutout at a public URL that stays available for 7 days. Costs 5 credits; auto-refunded on failure.',
 						action: 'Remove an image background',
 					},
 					{
@@ -931,7 +931,7 @@ export class SudoMock implements INodeType {
 								type: 'boolean',
 								default: false,
 								description:
-									'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
+									'Whether to remove the artwork background before placing it. Adds 5 credits per artwork.',
 							},
 							{
 								displayName: 'Saved Print Area UUID',
@@ -1378,7 +1378,7 @@ export class SudoMock implements INodeType {
 										type: 'boolean',
 										default: false,
 										description:
-											'Whether to remove the artwork background before placing it. Adds 25 credits per artwork.',
+											'Whether to remove the artwork background before placing it. Adds 5 credits per artwork.',
 									},
 									{
 										displayName: 'Rotation',

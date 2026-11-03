@@ -5,6 +5,14 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-11-03
+
+### Changed
+
+- Background removal is documented at 5 credits per image, on the **Remove
+  Background** operation and on the per-artwork **Remove Background** toggle
+  of both render operations (5 credits per artwork).
+
 ## [0.17.1] - 2026-10-31
 
 ### Changed

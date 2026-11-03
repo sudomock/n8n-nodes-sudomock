@@ -32,7 +32,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 - **PSD Mockup: Render**: Generate mockups with artwork, personalized text, or both. Text overrides support styled segments, fonts, size, color, stroke color, and overflow, shrink, or clip fitting. Optionally run asynchronously with the **Run Asynchronously** toggle, which returns a `job_id` to track with **Get Job**.
 - **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Choose a supported duration, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
-- **Remove Background**: Isolate the subject of an image onto a transparent background. The returned PNG URL is public and stays available for 7 days. Costs 25 credits, refunded automatically if processing fails. The same cleanup is available inline on both render operations with the per-artwork **Remove Background** toggle.
+- **Remove Background**: Isolate the subject of an image onto a transparent background. The returned PNG URL is public and stays available for 7 days. Costs 5 credits, refunded automatically if processing fails. The same cleanup is available inline on both render operations with the per-artwork **Remove Background** toggle.
 
 ### Fonts and Order Artwork
 
@@ -281,7 +281,7 @@ Generate a mockup by filling smart objects with your designs.
   - Fit Mode: `fill`, `contain`, or `cover` (recommended)
   - **Additional Options** (optional):
     - Rotation: -360 to 360 degrees
-    - Remove Background: clean the artwork before placing it (adds 25 credits per artwork)
+    - Remove Background: clean the artwork before placing it (adds 5 credits per artwork)
     - Color Overlay: Hex color code
     - Color Blend Mode: Various blend modes
     - Brightness: -150 to 150
@@ -363,7 +363,7 @@ Image URL: https://cdn.example.com/product-photo.jpg
 }
 ```
 
-The returned URL is public, stays available for 7 days and can be fed straight into **PSD Mockup: Render** or **Photo Mockup: Render** as artwork during that window. Processing costs 25 credits per image and is refunded automatically if it fails. To clean artwork as part of a render instead, use the per-artwork **Remove Background** toggle on either render operation.
+The returned URL is public, stays available for 7 days and can be fed straight into **PSD Mockup: Render** or **Photo Mockup: Render** as artwork during that window. Processing costs 5 credits per image and is refunded automatically if it fails. To clean artwork as part of a render instead, use the per-artwork **Remove Background** toggle on either render operation.
 
 ---
 
@@ -394,7 +394,7 @@ Create, prepare, render, and manage reusable mockups from product images without
 2. **Photo Mockup: Get** returns `draft`, `ready`, or `failed` status. Poll this operation until the mockup is `ready`. The ready response lists every printable product, and the main wall of a room photo, in `data.surfaces` (addressed by `surface_uuid`), and every print area someone has drawn in `data.quads` (addressed by `print_area_id`).
 3. **Photo Mockup: List** returns your photo mockups with limit, offset, and shopper-customizable filtering.
 4. **Photo Mockup: Set Print Areas** replaces saved areas with quads made from four `[x, y]` coordinate pairs. It can also send an empty list; the API remains authoritative and accepts that only when the mockup can remain renderable without saved areas. An area with a Print Area ID, the id of one of the mockup's print areas, keeps that id; an area without one gets a new id.
-5. **Photo Mockup: Render** accepts the mockup UUID and one or more ready render targets. Each target names exactly one address: `uuid` for a saved print area, or `surface_uuid` for a surface. Each target also includes either an artwork URL or Base64 artwork, with optional background removal (adds 25 credits per artwork), color, public adjustments, and placement. Export options support PNG, JPG, or WebP from 100 to 10000 pixels, plus quality and optional DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
+5. **Photo Mockup: Render** accepts the mockup UUID and one or more ready render targets. Each target names exactly one address: `uuid` for a saved print area, or `surface_uuid` for a surface. Each target also includes either an artwork URL or Base64 artwork, with optional background removal (adds 5 credits per artwork), color, public adjustments, and placement. Export options support PNG, JPG, or WebP from 100 to 10000 pixels, plus quality and optional DPI. Each render costs 5 credits and returns `print_files`, where `print_files[0]` is the CDN URL.
 6. **Photo Mockup: Delete** deletes the selected photo mockup.
 
 A surface and a print area are separate render targets. Saving a print area on a

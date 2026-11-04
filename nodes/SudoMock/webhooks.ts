@@ -19,6 +19,8 @@ export const WEBHOOK_EVENT_OPTIONS = [
 	{ name: 'photo_mockup.failed', value: 'photo_mockup.failed' },
 	{ name: 'photo_mockup_render.succeeded', value: 'photo_mockup_render.succeeded' },
 	{ name: 'photo_mockup_render.failed', value: 'photo_mockup_render.failed' },
+	{ name: 'seam_fix.succeeded', value: 'seam_fix.succeeded' },
+	{ name: 'seam_fix.failed', value: 'seam_fix.failed' },
 	{ name: 'webhook.test', value: 'webhook.test' },
 ];
 

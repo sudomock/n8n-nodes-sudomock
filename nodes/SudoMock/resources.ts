@@ -23,7 +23,7 @@ const RESOURCES = [
     name: "Image",
     value: "image",
     default: "removeBackground",
-    operations: ["removeBackground"],
+    operations: ["checkSeams", "fixSeams", "removeBackground"],
   },
   {
     name: "Job",

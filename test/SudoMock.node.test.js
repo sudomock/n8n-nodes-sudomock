@@ -100,6 +100,8 @@ const existingOperations = [
 	'listFonts',
 	'removeBackground',
 	'uploadFont',
+	'checkSeams',
+	'fixSeams',
 ];
 
 // Operations retired from the node. They must not reappear in the dropdown.
@@ -910,6 +912,8 @@ test('recent API resources, job kinds, and webhook events are exposed', () => {
 		'photo_mockup.failed',
 		'photo_mockup_render.succeeded',
 		'photo_mockup_render.failed',
+		'seam_fix.succeeded',
+		'seam_fix.failed',
 		'webhook.test',
 	];
 
@@ -940,6 +944,7 @@ test('recent API resources, job kinds, and webhook events are exposed', () => {
 			'photo_mockup_create',
 			'photo_mockup_render',
 			'render',
+			'seam_fix',
 			'upload',
 			'video',
 		],
@@ -1478,4 +1483,102 @@ test('the POD demo is runnable and follows the n8n template gates', () => {
 			for (const edge of output) assert.ok(byName.has(edge.node), `missing target ${edge.node}`);
 		}
 	}
+});
+
+// Seam check is free and answers at once; seam fix is a 60-credit job. Both
+// take the public API's image source (url or base64) and crop_aspect, and a
+// crop aspect left unset is not sent.
+test('Check Seams and Fix Seams send the public seam API body', async (t) => {
+	const cases = [
+		{
+			operation: 'checkSeams',
+			parameters: { seamSourceUrl: 'https://cdn.example.com/tile.png' },
+			expected: {
+				method: 'POST',
+				url: `${API_BASE}/check-seams`,
+				body: { url: 'https://cdn.example.com/tile.png' },
+				json: true,
+			},
+		},
+		{
+			operation: 'checkSeams',
+			parameters: {
+				seamSourceMode: 'base64',
+				seamSourceBase64: 'aW1hZ2U=',
+				seamOptions: { cropAspect: 1.5 },
+			},
+			expected: {
+				method: 'POST',
+				url: `${API_BASE}/check-seams`,
+				body: { base64: 'aW1hZ2U=', crop_aspect: 1.5 },
+				json: true,
+			},
+		},
+		{
+			operation: 'fixSeams',
+			parameters: {
+				seamSourceUrl: 'https://cdn.example.com/tile.png',
+				seamOptions: { cropAspect: 0.75 },
+			},
+			expected: {
+				method: 'POST',
+				url: `${API_BASE}/fix-seams`,
+				body: { url: 'https://cdn.example.com/tile.png', crop_aspect: 0.75 },
+				json: true,
+			},
+		},
+	];
+	for (const testCase of cases) {
+		await t.test(`${testCase.operation} ${JSON.stringify(testCase.parameters)}`, async () => {
+			const { calls, output, response } = await runOperation(testCase);
+			assert.equal(calls.length, 1);
+			assert.deepEqual(calls[0], { credential: 'sudoMockApi', options: testCase.expected });
+			assert.deepEqual(output[0][0].json, response);
+		});
+	}
+});
+
+test('Fix Seams with Wait for Result polls the job and returns the fixed tile', async () => {
+	const jobId = '7a7a7a7a-7a7a-7a7a-7a7a-7a7a7a7a7a7a';
+	const finished = {
+		job_id: jobId,
+		kind: 'seam_fix',
+		status: 'succeeded',
+		result_url: 'https://cdn.sudomock.com/seam-fixed/v1/u/u1/abc-result.png',
+		alternative_url: null,
+		result_status: 'seamless',
+		changes: 'edges',
+		stage: 'finishing',
+		credits_charged: 60,
+	};
+	const calls = [];
+	const parameters = {
+		operation: 'fixSeams',
+		seamSourceUrl: 'https://cdn.example.com/tile.png',
+		seamFixWaitForResult: true,
+		seamFixPollTimeout: 60,
+	};
+	const context = {
+		getInputData: () => [{ json: {} }],
+		getNodeParameter: (name, _index, fallback) =>
+			Object.prototype.hasOwnProperty.call(parameters, name) ? parameters[name] : fallback,
+		helpers: {
+			httpRequestWithAuthentication: async (credential, options) => {
+				calls.push(options);
+				return options.method === 'POST'
+					? { job_id: jobId, kind: 'seam_fix', status: 'queued', status_url: `/api/v1/jobs/${jobId}` }
+					: finished;
+			},
+		},
+		continueOnFail: () => false,
+		getNode: () => ({}),
+	};
+
+	const output = await new SudoMock().execute.call(context);
+
+	assert.deepEqual(
+		calls.map((options) => `${options.method} ${options.url}`),
+		[`POST ${API_BASE}/fix-seams`, `GET ${API_BASE}/jobs/${jobId}`],
+	);
+	assert.deepEqual(output[0][0].json, { ...finished, resultUrl: finished.result_url });
 });

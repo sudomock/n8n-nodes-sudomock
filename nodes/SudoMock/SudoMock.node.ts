@@ -253,6 +253,20 @@ export class SudoMock implements INodeType {
 						action: 'Delete stored artwork',
 					},
 					{
+						name: 'Check Seams',
+						value: 'checkSeams',
+						description:
+							'Check whether copies of a pattern tile meet without a visible line when it repeats, and where a line appears. Seam check: free.',
+						action: 'Check a pattern tile for seams',
+					},
+					{
+						name: 'Fix Seams',
+						value: 'fixSeams',
+						description:
+							'Make a pattern tile repeat without a visible line, keeping its size. Seam fix: 60 credits, refunded if the fix fails; seam check: free.',
+						action: 'Fix the seams of a pattern tile',
+					},
+					{
 						name: 'Font: Delete Custom Font',
 						value: 'deleteFont',
 						description: 'Delete one of your uploaded fonts',
@@ -1795,7 +1809,8 @@ export class SudoMock implements INodeType {
 				},
 				default: '',
 				placeholder: '9d4e2b51-0c7a-4f8e-bb1c-2a6f9e3d8c10',
-				description: 'The job_id returned by an async render, upload, video, or photo mockup request',
+				description:
+					'The job_id returned by an async render, upload, video, photo mockup, or seam fix request',
 			},
 			{
 				displayName: 'Wait for Completion',
@@ -1852,6 +1867,7 @@ export class SudoMock implements INodeType {
 							{ name: 'Photo Mockup Create', value: 'photo_mockup_create' },
 							{ name: 'Photo Mockup Render', value: 'photo_mockup_render' },
 							{ name: 'Render', value: 'render' },
+							{ name: 'Seam Fix', value: 'seam_fix' },
 							{ name: 'Upload', value: 'upload' },
 							{ name: 'Video', value: 'video' },
 						],
@@ -1979,6 +1995,90 @@ export class SudoMock implements INodeType {
 				default: '',
 				placeholder: 'https://cdn.example.com/product-photo.jpg',
 				description: 'Public URL of the image to isolate onto a transparent background',
+			},
+
+			// ============================================
+			// SEAM CHECK AND SEAM FIX PARAMETERS
+			// ============================================
+			{
+				displayName: 'Source Type',
+				name: 'seamSourceMode',
+				type: 'options',
+				displayOptions: { show: { operation: ['checkSeams', 'fixSeams'] } },
+				options: [
+					{
+						name: 'Image URL',
+						value: 'url',
+						description: 'Public URL of the tile image',
+					},
+					{
+						name: 'Base64 Image',
+						value: 'base64',
+						description: 'Base64 data of the tile image',
+					},
+				],
+				default: 'url',
+				description: 'Image source for the pattern tile',
+			},
+			{
+				displayName: 'Tile URL',
+				name: 'seamSourceUrl',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: { operation: ['checkSeams', 'fixSeams'], seamSourceMode: ['url'] },
+				},
+				default: '',
+				placeholder: 'https://cdn.example.com/pattern-tile.png',
+				description: 'Public URL of the pattern tile image',
+			},
+			{
+				displayName: 'Tile Base64',
+				name: 'seamSourceBase64',
+				type: 'string',
+				required: true,
+				displayOptions: {
+					show: { operation: ['checkSeams', 'fixSeams'], seamSourceMode: ['base64'] },
+				},
+				default: '',
+				description: 'Raw base64 bytes of the pattern tile image, without a data: prefix',
+			},
+			{
+				displayName: 'Options',
+				name: 'seamOptions',
+				type: 'collection',
+				placeholder: 'Add Option',
+				displayOptions: { show: { operation: ['checkSeams', 'fixSeams'] } },
+				default: {},
+				options: [
+					{
+						displayName: 'Crop Aspect',
+						name: 'cropAspect',
+						type: 'number',
+						typeOptions: { minValue: 0.01, numberPrecision: 4 },
+						default: 1,
+						description:
+							'Width divided by height of the tile when the render places the artwork with fit "crop". The image is cut exactly as that render cuts it. Leave it out to use the whole image.',
+					},
+				],
+			},
+			{
+				displayName: 'Wait for Result',
+				name: 'seamFixWaitForResult',
+				type: 'boolean',
+				displayOptions: { show: { operation: ['fixSeams'] } },
+				default: false,
+				description:
+					'Whether to poll the fix until it finishes and return the fixed tile, instead of returning the queued job immediately',
+			},
+			{
+				displayName: 'Poll Timeout (Seconds)',
+				name: 'seamFixPollTimeout',
+				type: 'number',
+				typeOptions: { minValue: 5 },
+				displayOptions: { show: { operation: ['fixSeams'], seamFixWaitForResult: [true] } },
+				default: 300,
+				description: 'Maximum time to wait for the fix to finish',
 			},
 
 			// ============================================
@@ -2861,6 +2961,49 @@ export class SudoMock implements INodeType {
 						json: response as IDataObject,
 						pairedItem: { item: i },
 					});
+				}
+
+				// ========================================
+				// SEAM CHECK AND SEAM FIX
+				// ========================================
+				else if (operation === 'checkSeams' || operation === 'fixSeams') {
+					const sourceMode = this.getNodeParameter('seamSourceMode', i, 'url') as string;
+					const body: IDataObject =
+						sourceMode === 'base64'
+							? { base64: this.getNodeParameter('seamSourceBase64', i) as string }
+							: { url: this.getNodeParameter('seamSourceUrl', i) as string };
+					const seamOptions = this.getNodeParameter('seamOptions', i, {}) as {
+						cropAspect?: number;
+					};
+					if (seamOptions.cropAspect !== undefined && seamOptions.cropAspect !== null) {
+						body.crop_aspect = seamOptions.cropAspect;
+					}
+
+					const response = (await this.helpers.httpRequestWithAuthentication.call(
+						this,
+						'sudoMockApi',
+						{
+							method: 'POST',
+							url: `https://api.sudomock.com/api/v1/${operation === 'checkSeams' ? 'check-seams' : 'fix-seams'}`,
+							body,
+							json: true,
+						},
+					)) as IDataObject;
+
+					const waitForResult =
+						operation === 'fixSeams' &&
+						(this.getNodeParameter('seamFixWaitForResult', i, false) as boolean);
+					if (waitForResult && response?.job_id) {
+						const timeout = this.getNodeParameter('seamFixPollTimeout', i, 300) as number;
+						const job = await pollJob.call(this, response.job_id as string, timeout);
+						const out: IDataObject = { ...job };
+						if (job.result_url) {
+							out.resultUrl = job.result_url;
+						}
+						returnData.push({ json: out, pairedItem: { item: i } });
+					} else {
+						returnData.push({ json: response, pairedItem: { item: i } });
+					}
 				}
 
 				// ========================================

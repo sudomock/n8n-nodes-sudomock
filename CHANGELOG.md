@@ -5,6 +5,22 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Check Seams** on the Image resource checks whether copies of a pattern
+  tile meet without a visible line when it repeats, and where a line appears.
+  It takes an image URL or Base64 image and an optional **Crop Aspect**. Seam
+  check: free.
+- **Fix Seams** on the Image resource takes the same fields and makes the tile
+  repeat without a visible line, keeping its size. **Wait for Result** polls
+  the fix and returns the finished job with `result_url`, `alternative_url`,
+  `result_status` and `changes`. Seam fix: 60 credits, refunded if the fix
+  fails.
+- **List Jobs** filters by the `seam_fix` kind, and webhook endpoints and the
+  trigger offer `seam_fix.succeeded` and `seam_fix.failed`.
+
 ## [0.17.2] - 2026-11-03
 
 ### Changed

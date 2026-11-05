@@ -5,7 +5,7 @@ All notable changes to `n8n-nodes-sudomock` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.18.0] - 2026-11-05
 
 ### Added
 
@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the fix and returns the finished job with `result_url`, `alternative_url`,
   `result_status` and `changes`. Seam fix: 60 credits, refunded if the fix
   fails.
+- **Fix Seams** sends an `Idempotency-Key`: the optional **Idempotency Key**
+  field, or one made for the execution, which the node keeps when it retries.
+  A retry with the same key returns the same job and is not charged again.
 - **List Jobs** filters by the `seam_fix` kind, and webhook endpoints and the
   trigger offer `seam_fix.succeeded` and `seam_fix.failed`.
 

@@ -1519,12 +1519,14 @@ test('Check Seams and Fix Seams send the public seam API body', async (t) => {
 			parameters: {
 				seamSourceUrl: 'https://cdn.example.com/tile.png',
 				seamOptions: { cropAspect: 0.75 },
+				seamFixIdempotencyKey: ' tile-42 ',
 			},
 			expected: {
 				method: 'POST',
 				url: `${API_BASE}/fix-seams`,
 				body: { url: 'https://cdn.example.com/tile.png', crop_aspect: 0.75 },
 				json: true,
+				headers: { 'Idempotency-Key': 'tile-42' },
 			},
 		},
 	];
@@ -1581,4 +1583,38 @@ test('Fix Seams with Wait for Result polls the job and returns the fixed tile', 
 		[`POST ${API_BASE}/fix-seams`, `GET ${API_BASE}/jobs/${jobId}`],
 	);
 	assert.deepEqual(output[0][0].json, { ...finished, resultUrl: finished.result_url });
+});
+
+// Without a user key every fix still carries one, so "Retry On Fail" (which runs
+// execute() again in the same execution) returns the same job instead of
+// charging again. Another execution, or another tile at the same item index, as
+// in a loop, must not reuse it: the API answers 409 to a key reused for a
+// different request.
+test('Fix Seams sends an Idempotency-Key that a retry of the same execution keeps', async () => {
+	async function fixKey(executionId, url, getExecutionId = () => executionId) {
+		const keys = [];
+		const context = {
+			getInputData: () => [{ json: {} }],
+			getNodeParameter: (name, _index, fallback) =>
+				({ operation: 'fixSeams', seamSourceUrl: url })[name] ?? fallback,
+			getExecutionId,
+			helpers: {
+				httpRequestWithAuthentication: async (_credential, options) => {
+					keys.push(options.headers['Idempotency-Key']);
+					return { job_id: 'j', kind: 'seam_fix', status: 'queued' };
+				},
+			},
+			continueOnFail: () => false,
+			getNode: () => ({ id: 'node-1' }),
+		};
+		await new SudoMock().execute.call(context);
+		return keys[0];
+	}
+	const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+	const first = await fixKey('101', 'https://cdn.example.com/tile.png');
+	assert.match(first, uuid);
+	assert.equal(await fixKey('101', 'https://cdn.example.com/tile.png'), first);
+	assert.notEqual(await fixKey('102', 'https://cdn.example.com/tile.png'), first);
+	assert.notEqual(await fixKey('101', 'https://cdn.example.com/other.png'), first);
+	assert.match(await fixKey(undefined, 'https://cdn.example.com/tile.png', undefined), uuid);
 });

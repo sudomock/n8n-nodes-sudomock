@@ -8,9 +8,12 @@ import {
 	NodeApiError,
 	NodeOperationError,
 	IDataObject,
+	IHttpRequestOptions,
 	JsonObject,
 	sleep,
 } from 'n8n-workflow';
+
+import { createHash, randomUUID } from 'node:crypto';
 
 import { WEBHOOK_EVENT_NAMING_OPTIONS, WEBHOOK_EVENT_OPTIONS } from './webhooks';
 import { resourceProperties } from './resources';
@@ -176,6 +179,26 @@ function parseJsonArray(this: IExecuteFunctions, value: unknown, name: string): 
 		throw new NodeOperationError(this.getNode(), `${name} must be a JSON array`);
 	}
 	return parsed;
+}
+
+/**
+ * Idempotency-Key for a paid seam fix when the user gives none. "Retry On Fail"
+ * runs execute() again within the same execution, so a random key would charge
+ * every retry. The key is derived from the execution, node, item and request
+ * body instead: a retry sends the same key, while another execution or another
+ * tile (a loop runs the node again with new items) gets its own.
+ */
+function seamFixIdempotencyKey(
+	this: IExecuteFunctions,
+	itemIndex: number,
+	body: IDataObject,
+): string {
+	const executionId = this.getExecutionId?.();
+	if (!executionId) return randomUUID();
+	const hex = createHash('sha256')
+		.update(JSON.stringify([executionId, this.getNode().id, itemIndex, body]))
+		.digest('hex');
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 /**
@@ -2063,6 +2086,16 @@ export class SudoMock implements INodeType {
 				],
 			},
 			{
+				displayName: 'Idempotency Key',
+				name: 'seamFixIdempotencyKey',
+				type: 'string',
+				displayOptions: { show: { operation: ['fixSeams'] } },
+				default: '',
+				placeholder: 'tile-42',
+				description:
+					'Optional key for this fix, up to 255 characters. A retry with the same key returns the same job and is not charged again. Leave it empty and each execution gets its own key, kept when the node retries.',
+			},
+			{
 				displayName: 'Wait for Result',
 				name: 'seamFixWaitForResult',
 				type: 'boolean',
@@ -2979,15 +3012,25 @@ export class SudoMock implements INodeType {
 						body.crop_aspect = seamOptions.cropAspect;
 					}
 
+					const request: IHttpRequestOptions = {
+						method: 'POST',
+						url: `https://api.sudomock.com/api/v1/${operation === 'checkSeams' ? 'check-seams' : 'fix-seams'}`,
+						body,
+						json: true,
+					};
+					if (operation === 'fixSeams') {
+						const key = (
+							this.getNodeParameter('seamFixIdempotencyKey', i, '') as string
+						).trim();
+						request.headers = {
+							'Idempotency-Key': key || seamFixIdempotencyKey.call(this, i, body),
+						};
+					}
+
 					const response = (await this.helpers.httpRequestWithAuthentication.call(
 						this,
 						'sudoMockApi',
-						{
-							method: 'POST',
-							url: `https://api.sudomock.com/api/v1/${operation === 'checkSeams' ? 'check-seams' : 'fix-seams'}`,
-							body,
-							json: true,
-						},
+						request,
 					)) as IDataObject;
 
 					const waitForResult =

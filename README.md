@@ -492,7 +492,7 @@ Turn a mockup (or an existing image URL) into a short product video. Always asyn
 - **Image URL** (required in Animate Image URL mode): public HTTPS image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.avif`)
 - **Webhook URL** (optional): one-off HTTPS URL notified when this job finishes
 - **Video Options**:
-  - **Duration (Seconds)**: clip length (default 4; must be an allowed duration for the chosen model — the default model `veo-3.1-fast` allows 4 or 6; max 15)
+  - **Duration (Seconds)**: clip length (default 4; must be an allowed duration for the chosen model: the default model `veo-3.1-fast` allows 4 or 6; max 15)
   - **Audio**: include a generated audio track (default false; may cost extra credits depending on model)
   - **Motion**: `ambient` (default) or `showcase`
   - **Advanced Model**: optional override pinning a roster model (`veo-3.1-fast`, `kling-v3-pro`, `kling-2.6-pro`, `seedance-2.0`, `wan-2.5`); leave empty to auto-pick by plan tier

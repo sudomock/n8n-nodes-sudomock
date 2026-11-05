@@ -34,7 +34,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Render Video**: Turn a mockup (or an existing image URL) into a short product video (always asynchronous). Choose a supported duration, optional audio/motion, an optional one-off webhook, and optionally **Wait for Completion** to return the finished clip.
 - **Remove Background**: Isolate the subject of an image onto a transparent background. The returned PNG URL is public and stays available for 7 days. Costs 5 credits, refunded automatically if processing fails. The same cleanup is available inline on both render operations with the per-artwork **Remove Background** toggle.
 - **Check Seams**: Check whether copies of a pattern tile meet without a visible line when it repeats, and where a line appears. Seam check: free.
-- **Fix Seams**: Make a pattern tile repeat without a visible line, keeping its size. Seam fix: 60 credits, refunded if the fix fails. Optionally **Wait for Result** to return the fixed tile.
+- **Fix Seams**: Make a pattern tile repeat without a visible line, keeping its size. Seam fix: 60 credits, refunded if the fix fails. A retry of the same execution is not charged again. Optionally **Wait for Result** to return the fixed tile.
 
 ### Fonts and Order Artwork
 
@@ -43,7 +43,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 
 ### Async Jobs
 
-- **Get Job**: Get the status and result of an async render, upload, video, or photo mockup job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render/video) or `mockup_uuid` (upload and photo mockup creation). Optionally **Wait for Completion** to poll until the job finishes.
+- **Get Job**: Get the status and result of an async render, upload, video, photo mockup, or seam fix job by its `job_id`. Terminal statuses are `succeeded`, `failed`, and `cancelled` (pending jobs report `queued`). On success it surfaces `result_url` (render, video, and seam fix) or `mockup_uuid` (upload and photo mockup creation). Optionally **Wait for Completion** to poll until the job finishes.
 - **List Jobs**: List your async render, upload, video, Photo Mockups, and seam fix jobs (keyset paginated, with optional `kind` and Mockup UUID filters).
 
 ### Webhooks
@@ -62,7 +62,7 @@ n8n community node for the SudoMock API. Integrate mockup rendering into your n8
 - **Webhook: Replay Failed Deliveries**
 - **Webhook: Events Feed** (recent deliveries across all of your endpoints)
 
-Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `photo_mockup.ready`, `photo_mockup.rejected`, `photo_mockup.failed`, `photo_mockup_render.succeeded`, `photo_mockup_render.failed`, `seam_fix.succeeded`, `seam_fix.failed`, `webhook.test`. Endpoints created by earlier versions of this package are pinned to the legacy spelling of the five Photo Mockups events (`2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`) and keep receiving those names; both spellings can be selected when subscribing, the endpoint's **Event Naming** pin decides what is delivered, and **Webhook: Update Endpoint** can re-pin it. Deliveries are signed; see https://sudomock.com/docs/webhooks/overview for verification details.
+Canonical events: `render.succeeded`, `render.failed`, `upload.succeeded`, `video.succeeded`, `video.failed`, `photo_mockup.ready`, `photo_mockup.rejected`, `photo_mockup.failed`, `photo_mockup_render.succeeded`, `photo_mockup_render.failed`, `seam_fix.succeeded`, `seam_fix.failed`, `webhook.test`. A `seam_fix.succeeded` delivery carries `alternative_url` (a second fixed version, or null) next to `result_url`. Endpoints created by earlier versions of this package are pinned to the legacy spelling of the five Photo Mockups events (`2d_mockup.ready`, `2d_mockup.rejected`, `2d_mockup.failed`, `2d_render.succeeded`, `2d_render.failed`) and keep receiving those names; both spellings can be selected when subscribing, the endpoint's **Event Naming** pin decides what is delivered, and **Webhook: Update Endpoint** can re-pin it. Deliveries are signed; see https://sudomock.com/docs/webhooks/overview for verification details.
 
 ## Installation
 
@@ -409,11 +409,14 @@ Make a pattern tile repeat without a visible line where its copies meet, keeping
 **Parameters:**
 
 - **Source Type**, **Tile URL** or **Tile Base64**, and **Options > Crop Aspect**: as in **Check Seams**
+- **Idempotency Key**: optional, up to 255 characters. A retry with the same key returns the same job and is not charged again. Left empty, each execution gets its own key, kept when the node retries
 - **Wait for Result**: poll the fix until it finishes and return the fixed tile
 - **Poll Timeout (Seconds)**: max wait when Wait for Result is on (default 300)
 
 **Output:**
 The 202 acknowledgement (`job_id`, `kind` `seam_fix`, `status`, `status_url`), or, with Wait for Result on, the finished job: `result_url` / `resultUrl` (the fixed tile), `alternative_url` (a second fixed version, or null), `result_status` (the fixed tile, checked again at no cost), `changes` (`edges` or `whole_tile`) and `stage`.
+
+A fix that cannot repair the tile ends as `failed` with `error.error_code` `TILE_NOT_FIXABLE`, and `error.details.reason` says why: `not_a_pattern_tile` when the image is not a repeating pattern tile, `no_clean_result` when no fixed version of the tile repeated cleanly. The 60 credits are refunded. Run **Check Seams** first: a `seamless` tile needs no fix, and `previous_fix` returns an earlier fix of the same tile at no cost.
 
 ---
 
@@ -503,22 +506,22 @@ The 202 acknowledgement (`job_id`, `kind`, `status`, `status_url`, `estimated_cr
 
 ### Get Job
 
-Track an asynchronous render, upload, video, or photo mockup job by its `job_id`.
+Track an asynchronous render, upload, video, photo mockup, or seam fix job by its `job_id`.
 
 **Parameters:**
 
-- **Job ID** (required): the `job_id` from an async render, upload, video, or photo mockup request
+- **Job ID** (required): the `job_id` from an async render, upload, video, photo mockup, or seam fix request
 - **Wait for Completion**: poll until a terminal status (`succeeded`, `failed`, `cancelled`)
 - **Poll Timeout (Seconds)**: max wait when Wait for Completion is on
 
 **Output:**
-The job object. On success it surfaces `result_url` / `resultUrl` (render/video) or `mockup_uuid` / `resultMockupUuid` (upload), plus `credits_charged` and `payg` when applicable.
+The job object. On success it surfaces `result_url` / `resultUrl` (render, video, and seam fix) or `mockup_uuid` / `resultMockupUuid` (upload), plus `credits_charged` and `payg` when applicable. A seam fix job also carries `alternative_url`, `result_status`, `changes` and `stage`.
 
 ---
 
 ### List Jobs
 
-List your async render, upload, video, and Photo Mockups jobs (newest first, keyset paginated).
+List your async render, upload, video, Photo Mockups, and seam fix jobs (newest first, keyset paginated).
 
 **Parameters (all optional, under Filters):**
 

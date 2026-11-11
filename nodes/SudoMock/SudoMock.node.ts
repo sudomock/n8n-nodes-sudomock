@@ -761,7 +761,7 @@ export class SudoMock implements INodeType {
 										type: 'number',
 										typeOptions: { minValue: 0, maxValue: 100 },
 										default: 0,
-										description: 'Gaussian blur amount from 0 to 100',
+										description: 'Softens the artwork, 0 for sharp to 100 for the strongest blur',
 									},
 									{
 										displayName: 'Brightness',
@@ -1330,7 +1330,7 @@ export class SudoMock implements INodeType {
 											maxValue: 100,
 										},
 										default: 0,
-										description: 'Gaussian blur amount (0=sharp, 100=max blur)',
+										description: 'Softens the artwork, 0 for sharp to 100 for the strongest blur',
 									},
 									{
 										displayName: 'Brightness',

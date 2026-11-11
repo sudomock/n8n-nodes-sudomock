@@ -473,7 +473,7 @@ a print area, and **Coverage**, or **Width** and **Height**, on a surface. **Pos
 with **Offset X** and **Offset Y** sets where the grid starts. **Tile Spacing** is the
 gap between tiles, 0 to 100 percent of the tile size, used only when Tile is on.
 
-Each entry in `data.surfaces` also carries a `label`, what was detected there, such
+Each entry in `data.surfaces` also carries a `label`, what the surface is, such
 as `pillow` or `wall`, so you can tell surfaces apart before you pick one.
 
 Create must reach `ready` through **Photo Mockup: Get** before **Photo Mockup: Render**.

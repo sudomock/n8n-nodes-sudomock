@@ -1,5 +1,6 @@
 nodes/
 credentials/
+test/
 *.ts
 !*.d.ts
 tsconfig.json

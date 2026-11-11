@@ -11,21 +11,19 @@ const { SudoMock } = require(NODE_DIST_PATH);
 //
 // These paths are the api.sudomock.com public surface: the Photo Mockups
 // family lives under /api/v1/photo-mockups and the PSD family under
-// /api/v1/psd-mockups. The earlier
-// spellings (/api/v1/sudoai/2d-mockups and /api/v1/mockups) are still served
-// by the backend for workflows built on older versions of this package, but
-// the node itself emits only the family paths. They are declared here
-// independently of the node so the suite fails when the node drifts away
-// from the backend instead of agreeing with whatever the node happens to send.
+// /api/v1/psd-mockups. Earlier spellings stay served for workflows built on
+// older versions of this package, but the node itself emits only the family
+// paths. They are declared here independently of the node so the suite fails
+// when the node drifts away from the API instead of agreeing with whatever
+// the node happens to send.
 //
-// The singular forms (/2d-mockup, /2d-mockup/{id}/...) are mounted only on the
-// internal router (/api/v1/x-router, include_in_schema=False). On the public
-// surface they are retired paths that return 404: there is no alias and no
-// redirect, so the node must never emit them.
+// ALLOWED_API_URL_SHAPES below is the full set of URLs the built node may
+// carry. Anything else is a failure, whether or not anyone anticipated it.
 // ---------------------------------------------------------------------------
 const API_BASE = 'https://api.sudomock.com/api/v1';
 const PHOTO_MOCKUP_BASE = `${API_BASE}/photo-mockups`;
 const PSD_MOCKUP_BASE = `${API_BASE}/psd-mockups`;
+const WEBHOOK_BASE = `${API_BASE}/webhook-endpoints`;
 
 const BACKEND_CONTRACT = {
 	create2DMockup: { method: 'POST', url: () => PHOTO_MOCKUP_BASE },
@@ -53,22 +51,38 @@ const PSD_BACKEND_CONTRACT = {
 	deleteMockup: { method: 'DELETE', url: (id) => `${PSD_MOCKUP_BASE}/${id}` },
 };
 
-// Path fragments that must never appear in a URL the node builds.
-const RETIRED_OR_INTERNAL_FRAGMENTS = [
-	'/api/v1/sudoai/2d-mockup/', // retired singular path -> 404
-	'/api/v1/sudoai/2d-mockup?', // retired singular collection -> 404
-	"/api/v1/sudoai/2d-mockup'", // retired singular collection literal -> 404
-	'/api/v1/sudoai/2d-mockup`', // retired singular collection literal -> 404
-	'/api/v1/x-router/', // internal router, not reachable with a customer key
-	'/x-step-a',
-	'/x-step-b',
-	'/x-step-c',
-];
-
-// Earlier spellings of the two family paths. The backend keeps serving them
-// for workflows built on older versions, but this node emits only the family
-// paths, so the built node must not carry them.
-const EARLIER_PATH_SPELLINGS = ['/api/v1/sudoai/2d-mockups', '/api/v1/mockups'];
+// Every API URL shape the node is allowed to build, template literals and
+// all. The built node is checked against this set rather than against a list
+// of paths it must avoid: an allowlist catches a path nobody thought to
+// forbid, and it names only paths the public API documents.
+const ALLOWED_API_URL_SHAPES = new Set([
+	`${API_BASE}/me`,
+	`${API_BASE}/jobs`,
+	`${API_BASE}/jobs/\${jobId}`,
+	`${API_BASE}/fonts`,
+	`${API_BASE}/fonts/\${fontUuid}`,
+	`${API_BASE}/artworks/delete`,
+	`${API_BASE}/psd/upload`,
+	`${API_BASE}/renders`,
+	`${API_BASE}/renders/video`,
+	`${API_BASE}/remove-background`,
+	`${API_BASE}/\${operation === 'checkSeams' ? 'check-seams' : 'fix-seams'}`,
+	PHOTO_MOCKUP_BASE,
+	`${PHOTO_MOCKUP_BASE}/\${mockupUuid}`,
+	`${PHOTO_MOCKUP_BASE}/\${mockupUuid}/print-areas`,
+	`${PHOTO_MOCKUP_BASE}/\${mockupUuid}/render`,
+	PSD_MOCKUP_BASE,
+	`${PSD_MOCKUP_BASE}/\${mockupUuid}`,
+	`${PSD_MOCKUP_BASE}/\${mockupUuid}/layers`,
+	WEBHOOK_BASE,
+	`${WEBHOOK_BASE}/events`,
+	`${WEBHOOK_BASE}/\${webhookId}`,
+	`${WEBHOOK_BASE}/\${webhookId}/test`,
+	`${WEBHOOK_BASE}/\${webhookId}/rotate-secret`,
+	`${WEBHOOK_BASE}/\${webhookId}/deliveries`,
+	`${WEBHOOK_BASE}/\${webhookId}/deliveries/replay-failed`,
+	`${WEBHOOK_BASE}/\${webhookId}/deliveries/\${deliveryId}/replay`,
+]);
 
 const RENDER_BODY_FORBIDDEN_KEYS = ['mockup_uuid', 'mockupUuid', 'uuid'];
 
@@ -395,10 +409,10 @@ const cases = [
 					adjustments: {
 						brightness: 5,
 						blend_mode: 'multiply',
-						x_field_f: 2,
-						x_field_g: 10,
-						x_field_h: 10,
-						x_field_i: 100,
+						x_field_a: 2,
+						x_field_b: 10,
+						x_field_c: 10,
+						x_field_d: 100,
 					},
 					placement: { position: 'center', fit: 'cover' },
 					surfacePlacement: { coverage: 55 },
@@ -693,12 +707,6 @@ test('every photo mockup operation targets the family collection, never a retire
 				url.startsWith(`${PHOTO_MOCKUP_BASE}/`) || url === PHOTO_MOCKUP_BASE,
 				`${testCase.operation} must call ${PHOTO_MOCKUP_BASE}, got ${url}`,
 			);
-			for (const fragment of RETIRED_OR_INTERNAL_FRAGMENTS) {
-				assert.ok(
-					!url.includes(fragment),
-					`${testCase.operation} calls retired or internal path fragment ${fragment}: ${url}`,
-				);
-			}
 			if (testCase.pathId) {
 				assert.ok(
 					url.includes(`/${testCase.pathId}`),
@@ -1404,38 +1412,38 @@ test('the trigger offers the photo-mockup event names and pins its endpoint to t
 	assert.deepEqual(staticData, { webhookId: 'wh-1', webhookSecret: 'whsec' });
 });
 
-test('the built node carries only the family API paths', () => {
+test('the published package carries the build and nothing else', () => {
+	const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+	assert.deepEqual(manifest.files, ['dist'], 'package.json "files" must publish dist only');
+	const npmignore = fs.readFileSync(path.join(__dirname, '..', '.npmignore'), 'utf8');
+	assert.ok(/^test\/$/m.test(npmignore), '.npmignore must exclude the suite as well');
+});
+
+test('the built node carries only the allowed API URL shapes', () => {
 	const source = fs.readFileSync(NODE_DIST_PATH, 'utf8');
 
-	for (const fragment of [...RETIRED_OR_INTERNAL_FRAGMENTS, ...EARLIER_PATH_SPELLINGS]) {
-		assert.ok(!source.includes(fragment), `built node still references ${fragment}`);
+	// Each URL is read whole, inside its own string delimiter, so a template
+	// literal that carries a `${...}` expression is not cut in half.
+	const urls = [
+		...new Set(
+			["'", '"', '`'].flatMap((quote) => [
+				...source.matchAll(
+					new RegExp(`${quote}(https://api\\.sudomock\\.com/api/v1[^${quote}]*)${quote}`, 'g'),
+				),
+			].map((match) => match[1])),
+		),
+	];
+	assert.ok(urls.length > 0, 'expected the node to build API URLs');
+	for (const url of urls) {
+		assert.ok(ALLOWED_API_URL_SHAPES.has(url), `unexpected API URL in the built node: ${url}`);
 	}
-
-	const photoUrls = [
-		...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/photo-mockups[^'"`\s)]*/g),
-	].map((match) => match[0]);
-	assert.ok(photoUrls.length > 0, 'expected the node to build photo mockup URLs');
-	const allowedPhotoShapes = new Set([
-		PHOTO_MOCKUP_BASE,
-		`${PHOTO_MOCKUP_BASE}/\${mockupUuid}`,
-		`${PHOTO_MOCKUP_BASE}/\${mockupUuid}/print-areas`,
-		`${PHOTO_MOCKUP_BASE}/\${mockupUuid}/render`,
-	]);
-	for (const url of photoUrls) {
-		assert.ok(allowedPhotoShapes.has(url), `unexpected photo mockup URL in the built node: ${url}`);
-	}
-
-	const psdUrls = [
-		...source.matchAll(/https:\/\/api\.sudomock\.com\/api\/v1\/psd-mockups[^'"`\s)]*/g),
-	].map((match) => match[0]);
-	assert.ok(psdUrls.length > 0, 'expected the node to build PSD mockup URLs');
-	const allowedPsdShapes = new Set([
-		PSD_MOCKUP_BASE,
-		`${PSD_MOCKUP_BASE}/\${mockupUuid}`,
-		`${PSD_MOCKUP_BASE}/\${mockupUuid}/layers`,
-	]);
-	for (const url of psdUrls) {
-		assert.ok(allowedPsdShapes.has(url), `unexpected PSD mockup URL in the built node: ${url}`);
+	// Both families and the webhook family must actually be reached, so a node
+	// that stopped building them cannot pass by building nothing.
+	for (const base of [PHOTO_MOCKUP_BASE, PSD_MOCKUP_BASE, WEBHOOK_BASE]) {
+		assert.ok(
+			urls.some((url) => url.startsWith(base)),
+			`expected the node to build ${base} URLs`,
+		);
 	}
 });
 
